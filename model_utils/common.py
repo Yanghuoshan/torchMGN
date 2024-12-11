@@ -32,9 +32,9 @@ class NodeType(enum.IntEnum):
     SIZE = 9
 
 
-def triangles_to_edges(faces, deform=False):
+def triangles_to_edges(faces, rectangle=False):
     """Computes mesh edges from triangles."""
-    if not deform:
+    if not rectangle:
         # collect edges from triangles
         edges = torch.cat((faces[:, 0:2],
                            faces[:, 1:3],

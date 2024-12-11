@@ -32,11 +32,15 @@ PARAMETERS = {
 }
 params = PARAMETERS['deform']
 model = deform_model.Model(params, message_passing_steps=7).to(device)
-dl = datasets.get_dataloader("D:\project_summary\Graduation Project\\tmp\datasets_np\deforming_plate\\train",dataset_type="HyperEl")
-dl = iter(dl)
-input = next(dl) 
-for k,v in input.items():
-    input[k] = input[k].squeeze(0).to(device)
-# print(input)
-out = model(input,is_training=False)
+# dl = datasets.get_dataloader("D:\project_summary\Graduation Project\\tmp\datasets_np\deforming_plate\\train",dataset_type="HyperEl")
+# dl = iter(dl)
+# input = next(dl) 
+# for k,v in input.items():
+#     input[k] = input[k].squeeze(0).to(device)
+# # print(input)
+# out = model(input,is_training=False)
+# print(out)
+src = torch.tensor([[1, 2, 3], [4, 5, 6], [4, 5, 6]]).to(device)
+index = torch.tensor([0, 1, 0]).to(device)
+out = model.unsorted_segment_operation(src,index,3,"sum")
 print(out)

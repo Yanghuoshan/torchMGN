@@ -74,14 +74,11 @@ class AttentionModel(nn.Module):
 class GraphNetBlock(nn.Module):
     """Multi-Edge Interaction Network with residual connections."""
 
-    def __init__(self, model_fn, output_size, message_passing_aggregator, attention=False):
+    def __init__(self, model_fn, output_size, message_passing_aggregator):
         super().__init__()
         self.mesh_edge_model = model_fn(output_size)
         self.world_edge_model = model_fn(output_size)
         self.node_model = model_fn(output_size)
-        self.attention = attention
-        if attention:
-            self.attention_model = AttentionModel()
         self.message_passing_aggregator = message_passing_aggregator
 
         self.linear_layer = nn.LazyLinear(1)
@@ -142,30 +139,7 @@ class GraphNetBlock(nn.Module):
         num_nodes = node_features.shape[0]
         features = [node_features]
         for edge_set in edge_sets:
-            if self.attention and self.message_passing_aggregator == 'pna':
-                attention_input = self.linear_layer(edge_set.features)
-                attention_input = self.leaky_relu(attention_input)
-                attention = F.softmax(attention_input, dim=0)
-                features.append(
-                    self.unsorted_segment_operation(torch.mul(edge_set.features, attention), edge_set.receivers,
-                                                    num_nodes, operation='sum'))
-                features.append(
-                    self.unsorted_segment_operation(torch.mul(edge_set.features, attention), edge_set.receivers,
-                                                    num_nodes, operation='mean'))
-                features.append(
-                    self.unsorted_segment_operation(torch.mul(edge_set.features, attention), edge_set.receivers,
-                                                    num_nodes, operation='max'))
-                features.append(
-                    self.unsorted_segment_operation(torch.mul(edge_set.features, attention), edge_set.receivers,
-                                                    num_nodes, operation='min'))
-            elif self.attention:
-                attention_input = self.linear_layer(edge_set.features)
-                attention_input = self.leaky_relu(attention_input)
-                attention = F.softmax(attention_input, dim=0)
-                features.append(
-                    self.unsorted_segment_operation(torch.mul(edge_set.features, attention), edge_set.receivers,
-                                                    num_nodes, operation=self.message_passing_aggregator))
-            elif self.message_passing_aggregator == 'pna':
+            if self.message_passing_aggregator == 'pna':
                 features.append(
                     self.unsorted_segment_operation(edge_set.features, edge_set.receivers,
                                                     num_nodes, operation='sum'))
@@ -263,7 +237,7 @@ class Processor(nn.Module):
         for index in range(message_passing_steps):
             self.graphnet_blocks.append(GraphNetBlock(model_fn=make_mlp, output_size=output_size,
                                                       message_passing_aggregator=message_passing_aggregator,
-                                                      attention=attention))
+                                                    ))
 
     def forward(self, latent_graph, normalized_adj_mat=None, mask=None):
         for graphnet_block in self.graphnet_blocks:
@@ -292,7 +266,6 @@ class EncodeProcessDecode(nn.Module):
         self.processor = Processor(make_mlp=self._make_mlp, output_size=self._latent_size,
                                    message_passing_steps=self._message_passing_steps,
                                    message_passing_aggregator=self._message_passing_aggregator,
-                                   attention=self._attention,
                                    stochastic_message_passing_used=False)
         self.decoder = Decoder(make_mlp=functools.partial(self._make_mlp, layer_norm=False),
                                output_size=self._output_size)

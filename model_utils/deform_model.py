@@ -17,10 +17,7 @@ class Model(nn.Module):
     """Model for static cloth simulation."""
 
     def __init__(self, params, core_model_name=encode_process_decode, message_passing_aggregator='sum',
-                 message_passing_steps=15, attention=False, ripple_used=False, ripple_generation=None,
-                 ripple_generation_number=None,
-                 ripple_node_selection=None, ripple_node_selection_random_top_n=None, ripple_node_connection=None,
-                 ripple_node_ncross=None):
+                 message_passing_steps=15):
         super(Model, self).__init__()
         self._params = params
         self._output_normalizer = normalization.Normalizer(size=3, name='output_normalizer')
@@ -36,17 +33,14 @@ class Model(nn.Module):
         self.core_model = encode_process_decode
         self.message_passing_steps = message_passing_steps
         self.message_passing_aggregator = message_passing_aggregator
-        self._attention = attention
-        self._ripple_used = ripple_used
 
         
         self.learned_model = self.core_model.EncodeProcessDecode(
-            output_size=params['size'],
+            output_size=params['size'],# 在deforming_plate中是3
             latent_size=128,
             num_layers=2,
             message_passing_steps=self.message_passing_steps,
-            message_passing_aggregator=self.message_passing_aggregator, attention=self._attention,
-            ripple_used=self._ripple_used)
+            message_passing_aggregator=self.message_passing_aggregator)
 
     def unsorted_segment_operation(self, data, segment_ids, num_segments, operation):
         """
@@ -90,22 +84,23 @@ class Model(nn.Module):
         one_hot_node_type = F.one_hot(node_type[:, 0].to(torch.int64), common.NodeType.SIZE).float()
 
         cells = inputs['cells']
-        decomposed_cells = common.triangles_to_edges(cells, deform=True)
+        decomposed_cells = common.triangles_to_edges(cells, rectangle=True)
         senders, receivers = decomposed_cells['two_way_connectivity']
 
 
         # find world edge
+        # 原论文应选用最小的mesh域的距离
+        # 且原论文也没有规定obstacle和其他种类的node只能作为sender或receiver
         radius = 0.03
         world_distance_matrix = torch.cdist(world_pos, world_pos, p=2)
-        # print("----------------------------------")
-        # print(torch.nonzero(world_distance_matrix).shape[0])
         world_connection_matrix = torch.where(world_distance_matrix < radius, True, False)
-        # print(torch.nonzero(world_connection_matrix).shape[0])
+
         # remove self connection
         world_connection_matrix = world_connection_matrix.fill_diagonal_(False)
-        # print(torch.nonzero(world_connection_matrix).shape[0])
+
         # remove world edge node pairs that already exist in mesh edge collection
         world_connection_matrix[senders, receivers] = torch.tensor(False, dtype=torch.bool, device=device)
+
         # only obstacle and handle node as sender and normal node as receiver
         '''no_connection_mask = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.OBSTACLE.value], device=device))
         no_connection_mask = torch.logical_or(no_connection_mask, torch.eq(node_type[:, 0], torch.tensor([common.NodeType.HANDLE.value], device=device)))
@@ -116,13 +111,13 @@ class Model(nn.Module):
         world_connection_matrix = torch.where(no_connection_mask, world_connection_matrix, torch.tensor(0., dtype=torch.float32, device=device))'''
 
         # remove receivers whose node type is obstacle
-        no_connection_mask = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.OBSTACLE.value], device=device))
+        '''no_connection_mask = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.OBSTACLE.value], device=device))
         no_connection_mask_t = torch.transpose(torch.stack([no_connection_mask] * world_pos.shape[0], dim=1), 0, 1)
-        world_connection_matrix = torch.where(no_connection_mask_t, torch.tensor(False, dtype=torch.bool, device=device), world_connection_matrix)
+        world_connection_matrix = torch.where(no_connection_mask_t, torch.tensor(False, dtype=torch.bool, device=device), world_connection_matrix)'''
         # remove senders whose node type is handle and normal
-        connection_mask = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.OBSTACLE.value], device=device))
+        '''connection_mask = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.OBSTACLE.value], device=device))
         connection_mask = torch.stack([no_connection_mask] * world_pos.shape[0], dim=1)
-        world_connection_matrix = torch.where(connection_mask, world_connection_matrix, torch.tensor(False, dtype=torch.bool, device=device))
+        world_connection_matrix = torch.where(connection_mask, world_connection_matrix, torch.tensor(False, dtype=torch.bool, device=device))'''
         '''no_connection_mask_t = torch.transpose(torch.stack([no_connection_mask] * world_pos.shape[0], dim=1), 0, 1)
         world_connection_matrix = torch.where(no_connection_mask_t,
                                               torch.tensor(0., dtype=torch.float32, device=device),
