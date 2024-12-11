@@ -253,3 +253,47 @@ class Model(nn.Module):
     def evaluate(self):
         self.eval()
         self.learned_model.eval()
+
+
+def loss_fn(inputs, network_output, model, params):
+    """L2 loss on position."""
+    # build target acceleration
+    
+    world_pos = inputs['world_pos']
+    target_world_pos = inputs['target|world_pos']
+    target_stress = inputs['target|stress']
+
+    cur_position = world_pos
+    target_position = target_world_pos
+    target_velocity = target_position - cur_position
+
+    node_type = inputs['node_type']
+    '''scripted_node_mask = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.NORMAL.value], device=device))
+    scripted_node_mask = torch.logical_not(scripted_node_mask)
+    scripted_node_mask = torch.stack([scripted_node_mask] * 3, dim=1)
+    target_velocity = torch.where(scripted_node_mask, torch.tensor(0., device=device), target_velocity)'''
+
+    world_pos_normalizer, stress_normalizer = model.get_output_normalizer()
+    target_normalized = world_pos_normalizer(target_velocity).to(device)
+    target_normalized_stress = stress_normalizer(target_stress).to(device)
+
+    '''node_type = inputs['node_type']
+    scripted_node_mask = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.OBSTACLE.value], device=device))
+    scripted_node_mask = torch.stack([scripted_node_mask] * 3, dim=1)
+    target_normalized = torch.where(scripted_node_mask, torch.tensor(0., device=device), target_normalized)'''
+
+    # build loss
+    # print(network_output[187])
+    node_type = inputs['node_type']
+    loss_mask = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.NORMAL.value], device=device).int())
+    # loss_mask = torch.logical_not(loss_mask)
+    # loss_mask = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.OBSTACLE.value], device=device).int())
+    # loss_mask = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.NORMAL.value], device=device).int())
+    # loss_mask = torch.logical_not(loss_mask)
+    error = torch.sum((target_normalized - network_output) ** 2, dim=1)
+    loss = torch.mean(error[loss_mask])
+
+    # error = torch.sum((target_normalized - network_output) ** 2, dim=1)
+    # error += torch.sum((target_normalized_stress - network_output) ** 2, dim=1)
+    # loss = torch.mean(error)
+    return loss
