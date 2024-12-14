@@ -10,6 +10,7 @@ from absl import app
 from absl import flags
 import torch
 from matplotlib import pyplot as plt
+os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 
 
 def pickle_save(path, data):
@@ -92,9 +93,9 @@ def log_run_summary(root_logger, run_step_config, run_step_dir):
     root_logger.info("=========================================================")
     root_logger.info("")
 
-def show_loss_graph(losses):
+def show_loss_graph(losses, save_path):
     plt.plot(losses)
     plt.xlabel('Interval (x100 steps)')
     plt.ylabel('Loss')
     plt.title('Loss Over Time')
-    plt.show()
+    plt.savefig(os.path.join(save_path,"train_loss.png"))

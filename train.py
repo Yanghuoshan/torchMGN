@@ -24,6 +24,7 @@ import torch.distributed as dist
 
 import matplotlib
 import matplotlib.pyplot as plt
+from tqdm import tqdm, trange
 
 
 device = torch.device('cuda')
@@ -31,8 +32,8 @@ device = torch.device('cuda')
 FLAGS = flags.FLAGS
 
 # common run configuration
-flags.DEFINE_enum('model', 'HyperEl', ['HyperEl'],
-                  'Select model to run.')
+flags.DEFINE_enum('model', 'HyperEl', ['HyperEl'], 'Select model to run.')
+flags.DEFINE_string('output_dir','D:\\project_summary\\Graduation Project\\torchMGN\\','path to output_dir')
 flags.DEFINE_string('datasets_dir','D:\\project_summary\\Graduation Project\\tmp\\datasets_np','path to datasets')
 flags.DEFINE_string('dataset', 'deforming_plate', ['deforming_plate'])
 flags.DEFINE_integer('epochs', 2, 'Num of training epochs')
@@ -41,22 +42,16 @@ flags.DEFINE_integer('nsave_steps', int(5000), help='Number of steps at which to
 
 # core model configuration
 flags.DEFINE_integer('output_size', 4, 'Num of output_size')
-flags.DEFINE_enum('core_model', 'encode_process_decode',
-                  ['encode_process_decode'],
-                  'Core model to be used')
+flags.DEFINE_enum('core_model', 'encode_process_decode', ['encode_process_decode'], 'Core model to be used')
 flags.DEFINE_enum('message_passing_aggregator', 'sum', ['sum', 'max', 'min', 'mean', 'pna'], 'No. of training epochs')
 flags.DEFINE_integer('message_passing_steps', 5, 'No. of training epochs')
-flags.DEFINE_string('model_last_run_dir',
-                    None,
+flags.DEFINE_string('model_last_run_dir', None, 
                     # os.path.join('E:\\meshgraphnets\\output\\deforming_plate', 'Sat-Feb-12-12-14-04-2022'),
                     # os.path.join('/home/i53/student/ruoheng_ma/meshgraphnets/output/deforming_plate', 'Mon-Jan--3-15-18-53-2022'),
                     'Path to the checkpoint file of a network that should continue training')
-
 # decide whether to use the configuration from last run step
 flags.DEFINE_boolean('use_prev_config', True, 'Decide whether to use the configuration from last run step')
-# hpc max run time setting
-# flags.DEFINE_integer('hpc_default_max_time', (48 - 4) * 60 * 60, 'Max run time on hpc')
-# hpc_start_time = time.time()
+
 
 def learner(model, loss_fn, run_step_config):
     root_logger = logging.getLogger()
@@ -100,7 +95,8 @@ def learner(model, loss_fn, run_step_config):
             root_logger.info("Training with " + str(gpu_count) + " GPUs")
             
             # start to train
-            for data in ds_iterator:
+            for _ in trange(len(ds_iterator)):
+                data = next(ds_iterator)
                 for k,v in data.items(): data[k] = data[k].squeeze(0).to(device) # preprocess
                 result = model(data, is_training=True)
                 loss = loss_fn(data, result, model)
@@ -118,8 +114,9 @@ def learner(model, loss_fn, run_step_config):
                         running_loss = 0.0
                         root_logger.info(f"Step [{step+1}], Loss: {avg_loss:.4f}")
 
-                if (step+1) % loss_report_step == 0:
-                    root_logger.info(f"Training step: {step+1}/{run_step_config['max_steps']}. Loss: {loss}.")
+                # Reprot loss
+                # if (step+1) % loss_report_step == 0:
+                #     root_logger.info(f"Training step: {step+1}/{run_step_config['max_steps']}. Loss: {loss}.")
 
                 # Save model state
                 if (step+1) % run_step_config['nsave_steps'] == 0:
@@ -128,17 +125,19 @@ def learner(model, loss_fn, run_step_config):
                     torch.save(scheduler.state_dict(), os.path.join(run_step_config['checkpoint_dir'], f"scheduler_checkpoint.pth"))
                     loss_record = {}
 
+                # Break if step reaches the maximun
                 if (step+1) >= run_step_config['max_steps']:
                     not_reached_max_steps = False
                     break
                 
                 # 清理内存
-                if step % 500 == 0:
+                if step % 100 == 0:
                     gc.collect()
                     torch.cuda.empty_cache()
 
                 step += 1
 
+            # Break if step reaches the maximun
             if not_reached_max_steps == False:
                 break
 
@@ -159,7 +158,6 @@ def learner(model, loss_fn, run_step_config):
     torch.save(scheduler.state_dict(), os.path.join(run_step_config['checkpoint_dir'], "scheduler_checkpoint.pth"))
     loss_record = {}
     loss_record["avglosses_per_100_steps"] = losses[:]
-    show_loss_graph(losses)
     '''
     loss_record['train_total_loss'] = torch.sum(torch.stack(epoch_training_losses))
     loss_record['train_mean_epoch_loss'] = torch.mean(torch.stack(epoch_training_losses)).item()
@@ -201,8 +199,7 @@ def main(argv):
 
 
     # setup directories
-    root_dir = pathlib.Path(__file__).parent.parent.resolve()
-    output_dir = os.path.join(root_dir, 'output', run_step_config['model']) # 如果last_run_dir没有指定。则在output文件夹里创建新的run_dir
+    output_dir = os.path.join(FLAGS.output_dir, 'output', run_step_config['model']) # 如果last_run_dir没有指定。则在output文件夹里创建新的run_dir
     run_step_dir = prepare_files_and_directories(last_run_dir, output_dir)
     checkpoint_dir = os.path.join(run_step_dir, 'checkpoint')
     log_dir = os.path.join(run_step_dir, 'log')
@@ -260,6 +257,7 @@ def main(argv):
         # 将本次中途开始的训练的loss和之前的未完成的训练的loss进行整合，得到完整训练的loss
         saved_train_loss_record = pickle_load(os.path.join(last_run_step_dir, 'log', 'train_loss.pkl'))
         train_loss_record["avglosses_per_100_steps"] = saved_train_loss_record["avglosses_per_100_steps"] + train_loss_record["avglosses_per_100_steps"]
+        show_loss_graph(train_loss_record["avglosses_per_100_steps"],log_dir)
         '''
         将本次中途开始的训练的loss和之前的未完成的训练的loss进行整合，得到完整训练的loss
         saved_train_loss_record = pickle_load(os.path.join(last_run_step_dir, 'log', 'train_loss.pkl'))
