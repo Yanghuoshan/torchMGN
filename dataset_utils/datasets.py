@@ -133,14 +133,19 @@ class Cloth_datasets(torch.utils.data.Dataset):
         )
     
 def get_dataloader(path, 
-                   dataset_type = "Cloth",
+                   model = "Cloth",
+                   split = "train",
                    batch_size = 1, 
                    shuffle = True):
-    if dataset_type == "Cloth":
+    """
+    根据不同的模型使用不同的数据类
+    """
+    path = os.path.join(path,split)
+    if model == "Cloth":
         Datasets = Cloth_datasets
-    elif dataset_type == "IncompNS":
+    elif model== "IncompNS":
         Datasets = IncompNS_datasets
-    elif dataset_type == "HyperEl":
+    elif model == "HyperEl":
         Datasets = HyperEl_datasets
     else:
         raise ValueError("The dataset type doesn't exist.")
@@ -152,7 +157,7 @@ if __name__ == "__main__":
     # ds = deforming_datasets("D:\project_summary\Graduation Project\\tmp\datasets_np\deforming_plate\\train")
     # ds = cloth_datasets("D:\project_summary\Graduation Project\\tmp\datasets_np\\flag_simple\\train")
     # ds = flow_datasets("D:\project_summary\Graduation Project\\tmp\datasets_np\\cylinder_flow\\train")
-    dl = get_dataloader("D:\project_summary\Graduation Project\\tmp\datasets_np\deforming_plate\\train",dataset_type="HyperEl")
+    dl = get_dataloader("D:\project_summary\Graduation Project\\tmp\datasets_np\deforming_plate",model="HyperEl",split="train")
     dl = iter(dl)
     start_time = time.time()
     print(next(dl)["node_type"])

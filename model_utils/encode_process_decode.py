@@ -52,7 +52,7 @@ class LazyMLP(nn.Module):
         y = self.layers(input)
         return y
 
-
+'''
 class AttentionModel(nn.Module):
     def __init__(self):
         super().__init__()
@@ -69,7 +69,7 @@ class AttentionModel(nn.Module):
         result = scatter_softmax(latent.float(), index, dim=0)
         result = result.type(result.dtype)
         return result
-
+'''
 
 class GraphNetBlock(nn.Module):
     """Multi-Edge Interaction Network with residual connections."""
@@ -278,7 +278,7 @@ class EncodeProcessDecode(nn.Module):
             network = nn.Sequential(network, nn.LayerNorm(normalized_shape=widths[-1]))
         return network
 
-    def forward(self, graph, is_training, world_edge_normalizer=None):
+    def forward(self, graph):
         """Encodes and processes a multigraph, and returns node features."""
         latent_graph = self.encoder(graph)
         latent_graph = self.processor(latent_graph)

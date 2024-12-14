@@ -1,0 +1,22 @@
+2024-12-14 01:19:37,570 - =========================================================
+2024-12-14 01:19:37,570 - Start new run in D:\project_summary\Graduation Project\torchMGN\myproject\output\HyperEl\Sat-Dec-14-01-19-37-2024\1
+2024-12-14 01:19:37,570 - =========================================================
+2024-12-14 01:19:37,571 - Program started at time Sat Dec 14 01:19:37 2024
+2024-12-14 01:19:37,571 - Start training......
+2024-12-14 01:19:37,730 - 
+2024-12-14 01:19:37,731 - =======================Run Summary=======================
+2024-12-14 01:19:37,731 - Simulation task is HyperEl simulation
+2024-12-14 01:19:37,731 - Core model is encode_process_decode
+2024-12-14 01:19:37,732 - Message passing aggregator is sum
+2024-12-14 01:19:37,732 - Message passing steps are 5
+2024-12-14 01:19:37,733 - Run output directory is D:\project_summary\Graduation Project\torchMGN\myproject\output\HyperEl\Sat-Dec-14-01-19-37-2024\1
+2024-12-14 01:19:37,733 - =========================================================
+2024-12-14 01:19:37,733 - 
+2024-12-14 01:19:38,159 - Epoch 1/2
+2024-12-14 01:19:38,160 - Training with 1 GPUs
+2024-12-14 01:19:38,798 - Training step: 0/5050. Loss: 7.660558223724365.
+2024-12-14 01:19:53,967 - Training step: 50/5050. Loss: 0.35734811425209045.
+2024-12-14 01:20:07,238 - Training step: 100/5050. Loss: 5.705636978149414.
+2024-12-14 01:20:20,138 - Training step: 150/5050. Loss: 1.2702083587646484.
+2024-12-14 01:20:32,609 - Training step: 200/5050. Loss: 6.232691764831543.
+2024-12-14 01:21:08,535 - Training step: 250/5050. Loss: 0.41109803318977356.

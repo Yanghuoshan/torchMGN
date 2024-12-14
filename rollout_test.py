@@ -6,7 +6,7 @@ import pickle
 from absl import app
 from absl import flags
 import torch
-from myproject.model_utils import HyperEl_model
+from myproject.model_utils import HyperEl
 from model_utils import deform_eval
 from model_utils import common
 import logging
@@ -27,16 +27,18 @@ device = torch.device('cuda')
 
 PARAMETERS = {
     'deform': dict(noise=0.003, gamma=1.0, field='world_pos', history=False,
-                  size=3, batch=2, model=HyperEl_model, evaluator=deform_eval, loss_type='deform',
+                  size=3, batch=2, model=HyperEl, evaluator=deform_eval, loss_type='deform',
                   stochastic_message_passing_used='False')
 }
 params = PARAMETERS['deform']
-model = HyperEl_model.Model(params, message_passing_steps=7).to(device)
-dl = datasets.get_dataloader("D:\project_summary\Graduation Project\\tmp\datasets_np\deforming_plate\\train",dataset_type="HyperEl")
+model = HyperEl.Model(4, message_passing_steps=7).to(device)
+loss_fn = HyperEl.loss_fn
+dl = datasets.get_dataloader("D:\project_summary\Graduation Project\\tmp\datasets_np\deforming_plate",dataset_type="HyperEl")
 dl = iter(dl)
 input = next(dl) 
 for k,v in input.items():
     input[k] = input[k].squeeze(0).to(device)
 # print(input)
-out = model(input,is_training=False)
-print(out)
+out = model(input,is_training=True)
+loss = loss_fn(input,out,model)
+print(loss)

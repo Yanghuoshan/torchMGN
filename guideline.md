@@ -3,9 +3,9 @@
 
 测试模型输入输出
 
-## run.py
+## train.py
 
-模型运行和训练，正在施工
+模型训练，正在施工
 
 ## datasets_utils
 
