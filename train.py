@@ -9,6 +9,7 @@ from absl import app
 from absl import flags
 
 import torch
+import gc
 
 from dataset_utils import datasets 
 from model_utils import HyperEl
@@ -22,7 +23,6 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 import torch.distributed as dist
 
 import matplotlib
-matplotlib.use('AGG')
 import matplotlib.pyplot as plt
 
 
@@ -75,11 +75,18 @@ def learner(model, loss_fn, run_step_config):
 
     # model training
     # epoch_training_losses = []
-    pass_count = 500
-    if run_step_config['model'] is not None:
+    pass_count = 300
+    if run_step_config['last_run_dir'] is not None:
         pass_count = 0
+
     not_reached_max_steps = True
     step = 0
+    loss_report_step = 1
+    loss_save_interval = 100 
+    running_loss = 0.0
+    loss_count = 0
+    losses = []
+
     while not_reached_max_steps:
         for epoch in range(run_step_config['epochs'])[trained_epoch:]:
             # model will train itself with the whole dataset
@@ -91,12 +98,10 @@ def learner(model, loss_fn, run_step_config):
             # decide single- or multi-gpu train
             gpu_count = torch.cuda.device_count()
             root_logger.info("Training with " + str(gpu_count) + " GPUs")
-            loss_report_step = 1
-
+            
             # start to train
             for data in ds_iterator:
                 for k,v in data.items(): data[k] = data[k].squeeze(0).to(device) # preprocess
-
                 result = model(data, is_training=True)
                 loss = loss_fn(data, result, model)
                 if pass_count > 0:
@@ -105,23 +110,35 @@ def learner(model, loss_fn, run_step_config):
                     optimizer.zero_grad()
                     loss.backward()
                     optimizer.step()
-                    epoch_training_loss += loss.detach().cpu()
 
-                if step % loss_report_step == 0:
-                    root_logger.info(f"Training step: {step}/{run_step_config['max_steps']}. Loss: {loss}.")
+                    running_loss += loss.cpu().item()
+                    if (step + 1) % loss_save_interval == 0:
+                        avg_loss = running_loss / loss_save_interval
+                        losses.append(avg_loss)
+                        running_loss = 0.0
+                        root_logger.info(f"Step [{step+1}], Loss: {avg_loss:.4f}")
+
+                if (step+1) % loss_report_step == 0:
+                    root_logger.info(f"Training step: {step+1}/{run_step_config['max_steps']}. Loss: {loss}.")
 
                 # Save model state
-                if step % run_step_config['nsave_steps'] == 0:
-                    model.save_model(os.path.join(run_step_config['checkpoint_dir'], f"model_checkpoint_{step}"))
-                    torch.save(optimizer.state_dict(), os.path.join(run_step_config['checkpoint_dir'], f"optimizer_checkpoint.pth_{step}"))
-                    torch.save(scheduler.state_dict(), os.path.join(run_step_config['checkpoint_dir'], f"scheduler_checkpoint.pth_{step}"))
+                if (step+1) % run_step_config['nsave_steps'] == 0:
+                    model.save_model(os.path.join(run_step_config['checkpoint_dir'], f"model_checkpoint"))
+                    torch.save(optimizer.state_dict(), os.path.join(run_step_config['checkpoint_dir'], f"optimizer_checkpoint.pth"))
+                    torch.save(scheduler.state_dict(), os.path.join(run_step_config['checkpoint_dir'], f"scheduler_checkpoint.pth"))
                     loss_record = {}
 
-                if step >= run_step_config['max_steps']:
+                if (step+1) >= run_step_config['max_steps']:
                     not_reached_max_steps = False
                     break
+                
+                # 清理内存
+                if step % 500 == 0:
+                    gc.collect()
+                    torch.cuda.empty_cache()
 
                 step += 1
+
             if not_reached_max_steps == False:
                 break
 
@@ -141,6 +158,8 @@ def learner(model, loss_fn, run_step_config):
     torch.save(optimizer.state_dict(), os.path.join(run_step_config['checkpoint_dir'], "optimizer_checkpoint.pth"))
     torch.save(scheduler.state_dict(), os.path.join(run_step_config['checkpoint_dir'], "scheduler_checkpoint.pth"))
     loss_record = {}
+    loss_record["avglosses_per_100_steps"] = losses[:]
+    show_loss_graph(losses)
     '''
     loss_record['train_total_loss'] = torch.sum(torch.stack(epoch_training_losses))
     loss_record['train_mean_epoch_loss'] = torch.mean(torch.stack(epoch_training_losses)).item()
@@ -182,7 +201,7 @@ def main(argv):
 
 
     # setup directories
-    root_dir = pathlib.Path(__file__).parent.resolve()
+    root_dir = pathlib.Path(__file__).parent.parent.resolve()
     output_dir = os.path.join(root_dir, 'output', run_step_config['model']) # 如果last_run_dir没有指定。则在output文件夹里创建新的run_dir
     run_step_dir = prepare_files_and_directories(last_run_dir, output_dir)
     checkpoint_dir = os.path.join(run_step_dir, 'checkpoint')
@@ -238,6 +257,9 @@ def main(argv):
 
     # load train loss if exist and combine the previous and current train loss
     if last_run_dir is not None:
+        # 将本次中途开始的训练的loss和之前的未完成的训练的loss进行整合，得到完整训练的loss
+        saved_train_loss_record = pickle_load(os.path.join(last_run_step_dir, 'log', 'train_loss.pkl'))
+        train_loss_record["avglosses_per_100_steps"] = saved_train_loss_record["avglosses_per_100_steps"] + train_loss_record["avglosses_per_100_steps"]
         '''
         将本次中途开始的训练的loss和之前的未完成的训练的loss进行整合，得到完整训练的loss
         saved_train_loss_record = pickle_load(os.path.join(last_run_step_dir, 'log', 'train_loss.pkl'))
