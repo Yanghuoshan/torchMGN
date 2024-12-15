@@ -33,8 +33,6 @@ EdgeSet = collections.namedtuple('EdgeSet', ['name', 'features', 'senders',
 MultiGraph = collections.namedtuple('Graph', ['node_features', 'edge_sets'])
 MultiGraphWithPos = collections.namedtuple('Graph', ['node_features', 'edge_sets', 'target_feature', 'model_type', 'node_dynamic'])
 
-device = torch.device('cuda')
-
 
 class LazyMLP(nn.Module):
     def __init__(self, output_sizes):
@@ -48,7 +46,6 @@ class LazyMLP(nn.Module):
         self.layers = nn.Sequential(self._layers_ordered_dict)
 
     def forward(self, input):
-        input = input.to(device)
         y = self.layers(input)
         return y
 
@@ -86,8 +83,8 @@ class GraphNetBlock(nn.Module):
 
     def _update_edge_features(self, node_features, edge_set):
         """Aggregrates node features, and applies edge function."""
-        senders = edge_set.senders.to(device)
-        receivers = edge_set.receivers.to(device)
+        senders = edge_set.senders
+        receivers = edge_set.receivers
         sender_features = torch.index_select(input=node_features, dim=0, index=senders)
         receiver_features = torch.index_select(input=node_features, dim=0, index=receivers)
         features = [sender_features, receiver_features, edge_set.features]
@@ -109,16 +106,16 @@ class GraphNetBlock(nn.Module):
         assert all([i in data.shape for i in segment_ids.shape]), "segment_ids.shape should be a prefix of data.shape"
 
         # segment_ids is a 1-D tensor repeat it to have the same shape as data
-        data = data.to(device)
-        segment_ids = segment_ids.to(device)
+        data = data
+        segment_ids = segment_ids
         if len(segment_ids.shape) == 1:
-            s = torch.prod(torch.tensor(data.shape[1:])).long().to(device)
-            segment_ids = segment_ids.repeat_interleave(s).view(segment_ids.shape[0], *data.shape[1:]).to(device)
+            s = torch.prod(torch.tensor(data.shape[1:])).long().to(segment_ids.device)
+            segment_ids = segment_ids.repeat_interleave(s).view(segment_ids.shape[0], *data.shape[1:])
 
         assert data.shape == segment_ids.shape, "data.shape and segment_ids.shape should be equal"
 
         shape = [num_segments] + list(data.shape[1:])
-        result = torch.zeros(*shape).to(device)
+        result = torch.zeros(*shape)
         if operation == 'sum':
             result = torch_scatter.scatter_add(data.float(), segment_ids, dim=0, dim_size=num_segments)
         elif operation == 'max':

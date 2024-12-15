@@ -230,9 +230,10 @@ def main(argv):
 
     # create or load model
     model = eval(run_step_config['model']).Model(run_step_config['output_size'], 
-                                  run_step_config['core_model'], 
-                                  run_step_config['message_passing_aggregator'],
-                                  run_step_config['message_passing_steps'])
+                                                 run_step_config['core_model'], 
+                                                 run_step_config['message_passing_aggregator'],
+                                                 run_step_config['message_passing_steps'],
+                                                 device = device)
     loss_fn = eval(run_step_config['model']).loss_fn
     if last_run_dir is not None:
         last_run_step_dir = find_nth_latest_run_step(last_run_dir, 2)
