@@ -36,6 +36,7 @@ flags.DEFINE_enum('model', 'HyperEl', ['HyperEl'], 'Select model to run.')
 flags.DEFINE_string('output_dir','D:\\project_summary\\Graduation Project\\torchMGN\\','path to output_dir')
 flags.DEFINE_string('datasets_dir','D:\\project_summary\\Graduation Project\\tmp\\datasets_np','path to datasets')
 flags.DEFINE_string('dataset', 'deforming_plate', ['deforming_plate'])
+flags.DEFINE_string('pre_fetch',1,'pre_fetch size')
 flags.DEFINE_integer('epochs', 2, 'Num of training epochs')
 flags.DEFINE_integer('max_steps', 10 ** 6, 'Num of training steps')
 flags.DEFINE_integer('nsave_steps', int(5000), help='Number of steps at which to save the model.')
@@ -86,7 +87,7 @@ def learner(model, loss_fn, run_step_config):
     while not_reached_max_steps:
         for epoch in range(run_step_config['epochs'])[trained_epoch:]:
             # model will train itself with the whole dataset
-            ds_loader = datasets.get_dataloader(run_step_config['dataset_dir'],model=run_step_config['model'],split='train',shuffle=True)
+            ds_loader = datasets.get_dataloader(run_step_config['dataset_dir'],model=run_step_config['model'],split='train',shuffle=True,pre_fetch=FLAGS.pre_fetch)
             root_logger.info("Epoch " + str(epoch + 1) + "/" + str(run_step_config['epochs']))
             epoch_training_loss = 0.0
             ds_iterator = iter(ds_loader)

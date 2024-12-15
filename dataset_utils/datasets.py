@@ -135,7 +135,6 @@ class Cloth_datasets(torch.utils.data.Dataset):
 def get_dataloader(path, 
                    model = "Cloth",
                    split = "train",
-                   batch_size = 1, 
                    shuffle = True,
                    pre_fetch = None):
     """
@@ -153,8 +152,17 @@ def get_dataloader(path,
     
     ds = Datasets(path)
     if pre_fetch is None:
-        return torch.utils.data.DataLoader(ds, batch_size=batch_size, shuffle = shuffle)
-    return torch.utils.data.DataLoader(ds, batch_size=batch_size, shuffle = shuffle, prefetch_factor=pre_fetch, num_workers=4, pin_memory=True)
+        return torch.utils.data.DataLoader(ds, batch_size=1, shuffle = shuffle)
+    return torch.utils.data.DataLoader(ds, batch_size=1, shuffle = shuffle, prefetch_factor=pre_fetch, num_workers=4, pin_memory=True)
+
+def  get_batch_dataloader(path, 
+                   model = "Cloth",
+                   split = "train",
+                   batch_size = 1, 
+                   shuffle = True,
+                   pre_fetch = None):
+    pass
+
 
 if __name__ == "__main__":
     # ds = deforming_datasets("D:\project_summary\Graduation Project\\tmp\datasets_np\deforming_plate\\train")
