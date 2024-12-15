@@ -106,8 +106,6 @@ class GraphNetBlock(nn.Module):
         assert all([i in data.shape for i in segment_ids.shape]), "segment_ids.shape should be a prefix of data.shape"
 
         # segment_ids is a 1-D tensor repeat it to have the same shape as data
-        data = data
-        segment_ids = segment_ids
         if len(segment_ids.shape) == 1:
             s = torch.prod(torch.tensor(data.shape[1:])).long().to(segment_ids.device)
             segment_ids = segment_ids.repeat_interleave(s).view(segment_ids.shape[0], *data.shape[1:])

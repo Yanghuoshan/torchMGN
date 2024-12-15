@@ -94,7 +94,7 @@ def learner(model, loss_fn, run_step_config):
             ds_iterator = iter(ds_loader)
             
             # start to train
-            for _ in trange(len(ds_iterator)):
+            for _ in range(len(ds_iterator)):
                 data = next(ds_iterator)
                 for k,v in data.items(): data[k] = data[k].squeeze(0).to(device) # preprocess
                 result = model(data, is_training=True)
@@ -130,9 +130,9 @@ def learner(model, loss_fn, run_step_config):
                     break
                 
                 # 清理内存
-                # if step % 100 == 0:
-                #     gc.collect()
-                #     torch.cuda.empty_cache()
+                if step % 100 == 0:
+                    gc.collect()
+                    torch.cuda.empty_cache()
 
                 step += 1
 
