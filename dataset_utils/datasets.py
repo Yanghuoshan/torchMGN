@@ -136,7 +136,8 @@ def get_dataloader(path,
                    model = "Cloth",
                    split = "train",
                    batch_size = 1, 
-                   shuffle = True):
+                   shuffle = True,
+                   pre_fetch = None):
     """
     根据不同的模型使用不同的数据类
     """
@@ -151,16 +152,19 @@ def get_dataloader(path,
         raise ValueError("The dataset type doesn't exist.")
     
     ds = Datasets(path)
-    return torch.utils.data.DataLoader(ds, batch_size=batch_size, shuffle = shuffle)
+    if pre_fetch is None:
+        return torch.utils.data.DataLoader(ds, batch_size=batch_size, shuffle = shuffle)
+    return torch.utils.data.DataLoader(ds, batch_size=batch_size, shuffle = shuffle, prefetch_factor=pre_fetch, num_workers=4, pin_memory=True)
 
 if __name__ == "__main__":
     # ds = deforming_datasets("D:\project_summary\Graduation Project\\tmp\datasets_np\deforming_plate\\train")
     # ds = cloth_datasets("D:\project_summary\Graduation Project\\tmp\datasets_np\\flag_simple\\train")
     # ds = flow_datasets("D:\project_summary\Graduation Project\\tmp\datasets_np\\cylinder_flow\\train")
-    dl = get_dataloader("D:\project_summary\Graduation Project\\tmp\datasets_np\deforming_plate",model="HyperEl",split="train")
+    dl = get_dataloader("D:\project_summary\Graduation Project\\tmp\datasets_np\deforming_plate",model="HyperEl",split="train",pre_fetch=2)
     dl = iter(dl)
     start_time = time.time()
-    print(next(dl)["node_type"])
+    for _ in range(10):
+        next(dl)["node_type"]
     end_time = time.time()
     
     execution_time = (end_time - start_time)/10

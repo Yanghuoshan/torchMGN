@@ -70,14 +70,15 @@ def learner(model, loss_fn, run_step_config):
 
     # model training
     # epoch_training_losses = []
-    pass_count = 300
+    fixed_pass_count = 500 # equal to pass_count but doesn't change
+    pass_count = 500
     if run_step_config['last_run_dir'] is not None:
         pass_count = 0
 
     not_reached_max_steps = True
     step = 0
     loss_report_step = 1
-    loss_save_interval = 100 
+    loss_save_interval = 1000
     running_loss = 0.0
     loss_count = 0
     losses = []
@@ -108,7 +109,7 @@ def learner(model, loss_fn, run_step_config):
                     optimizer.step()
 
                     running_loss += loss.cpu().item()
-                    if (step + 1) % loss_save_interval == 0:
+                    if (step + 1 - fixed_pass_count) % loss_save_interval == 0:
                         avg_loss = running_loss / loss_save_interval
                         losses.append(avg_loss)
                         running_loss = 0.0
@@ -131,9 +132,9 @@ def learner(model, loss_fn, run_step_config):
                     break
                 
                 # 清理内存
-                if step % 100 == 0:
-                    gc.collect()
-                    torch.cuda.empty_cache()
+                # if step % 100 == 0:
+                #     gc.collect()
+                #     torch.cuda.empty_cache()
 
                 step += 1
 
