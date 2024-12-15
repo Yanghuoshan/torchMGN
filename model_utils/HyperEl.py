@@ -34,7 +34,7 @@ class Model(nn.Module):
 
         
         self.learned_model = self.core_model.EncodeProcessDecode(
-            output_size=output_size,# 在deforming_plate中是3
+            output_size=output_size,# 在deforming_plate中是4
             latent_size=128,
             num_layers=2,
             message_passing_steps=self.message_passing_steps,

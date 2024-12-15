@@ -136,7 +136,7 @@ def get_dataloader(path,
                    model = "Cloth",
                    split = "train",
                    shuffle = True,
-                   pre_fetch = None):
+                   pre_fetch = 0):
     """
     根据不同的模型使用不同的数据类
     """
@@ -151,7 +151,7 @@ def get_dataloader(path,
         raise ValueError("The dataset type doesn't exist.")
     
     ds = Datasets(path)
-    if pre_fetch is None:
+    if pre_fetch == 0:
         return torch.utils.data.DataLoader(ds, batch_size=1, shuffle = shuffle)
     return torch.utils.data.DataLoader(ds, batch_size=1, shuffle = shuffle, prefetch_factor=pre_fetch, num_workers=4, pin_memory=True)
 
