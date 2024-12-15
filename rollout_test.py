@@ -6,7 +6,7 @@ import pickle
 from absl import app
 from absl import flags
 import torch
-from myproject.model_utils import HyperEl
+from model_utils import HyperEl
 from model_utils import deform_eval
 from model_utils import common
 import logging
@@ -33,7 +33,7 @@ PARAMETERS = {
 params = PARAMETERS['deform']
 model = HyperEl.Model(4, message_passing_steps=7).to(device)
 loss_fn = HyperEl.loss_fn
-dl = datasets.get_dataloader("D:\project_summary\Graduation Project\\tmp\datasets_np\deforming_plate",dataset_type="HyperEl")
+dl = datasets.get_dataloader("D:\project_summary\Graduation Project\\tmp\datasets_np\deforming_plate",model="HyperEl")
 dl = iter(dl)
 input = next(dl) 
 for k,v in input.items():

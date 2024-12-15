@@ -136,7 +136,7 @@ def get_dataloader(path,
                    model = "Cloth",
                    split = "train",
                    shuffle = True,
-                   pre_fetch = 0):
+                   prefetch = 0):
     """
     根据不同的模型使用不同的数据类
     """
@@ -151,9 +151,9 @@ def get_dataloader(path,
         raise ValueError("The dataset type doesn't exist.")
     
     ds = Datasets(path)
-    if pre_fetch == 0:
+    if prefetch == 0:
         return torch.utils.data.DataLoader(ds, batch_size=1, shuffle = shuffle)
-    return torch.utils.data.DataLoader(ds, batch_size=1, shuffle = shuffle, prefetch_factor=pre_fetch, num_workers=4, pin_memory=True)
+    return torch.utils.data.DataLoader(ds, batch_size=1, shuffle = shuffle, prefetch_factor=prefetch, num_workers=4, pin_memory=True)
 
 def  get_batch_dataloader(path, 
                    model = "Cloth",
@@ -168,7 +168,7 @@ if __name__ == "__main__":
     # ds = deforming_datasets("D:\project_summary\Graduation Project\\tmp\datasets_np\deforming_plate\\train")
     # ds = cloth_datasets("D:\project_summary\Graduation Project\\tmp\datasets_np\\flag_simple\\train")
     # ds = flow_datasets("D:\project_summary\Graduation Project\\tmp\datasets_np\\cylinder_flow\\train")
-    dl = get_dataloader("D:\project_summary\Graduation Project\\tmp\datasets_np\deforming_plate",model="HyperEl",split="train",pre_fetch=2)
+    dl = get_dataloader("D:\project_summary\Graduation Project\\tmp\datasets_np\deforming_plate",model="HyperEl",split="train",prefetch=2)
     dl = iter(dl)
     start_time = time.time()
     for _ in range(10):

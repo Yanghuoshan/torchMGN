@@ -27,7 +27,6 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm, trange
 
 
-device = torch.device('cuda')
 
 FLAGS = flags.FLAGS
 
@@ -36,10 +35,11 @@ flags.DEFINE_enum('model', 'HyperEl', ['HyperEl'], 'Select model to run.')
 flags.DEFINE_string('output_dir','D:\\project_summary\\Graduation Project\\torchMGN\\','path to output_dir')
 flags.DEFINE_string('datasets_dir','D:\\project_summary\\Graduation Project\\tmp\\datasets_np','path to datasets')
 flags.DEFINE_string('dataset', 'deforming_plate', ['deforming_plate'])
-flags.DEFINE_integer('pre_fetch',1,'pre_fetch size')
+flags.DEFINE_integer('prefetch',1,'prefetch size')
 flags.DEFINE_integer('epochs', 2, 'Num of training epochs')
 flags.DEFINE_integer('max_steps', 10 ** 6, 'Num of training steps')
 flags.DEFINE_integer('nsave_steps', int(5000), help='Number of steps at which to save the model.')
+flags.DEFINE_integer('gpu_id', 0, help='choose which gpu to use')
 
 # core model configuration
 flags.DEFINE_integer('output_size', 4, 'Num of output_size')
@@ -52,10 +52,11 @@ flags.DEFINE_string('model_last_run_dir', None,
                     'Path to the checkpoint file of a network that should continue training')
 # decide whether to use the configuration from last run step
 flags.DEFINE_boolean('use_prev_config', True, 'Decide whether to use the configuration from last run step')
-
+device = None
 
 def learner(model, loss_fn, run_step_config):
     root_logger = logging.getLogger()
+    root_logger.info(f"Use gpu {FLAGS.gpu_id}")
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
     scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, 0.1 + 1e-6, last_epoch=-1)
     trained_epoch = 0
@@ -87,14 +88,10 @@ def learner(model, loss_fn, run_step_config):
     while not_reached_max_steps:
         for epoch in range(run_step_config['epochs'])[trained_epoch:]:
             # model will train itself with the whole dataset
-            ds_loader = datasets.get_dataloader(run_step_config['dataset_dir'],model=run_step_config['model'],split='train',shuffle=True,pre_fetch=FLAGS.pre_fetch)
+            ds_loader = datasets.get_dataloader(run_step_config['dataset_dir'],model=run_step_config['model'],split='train',shuffle=True,prefetch=FLAGS.prefetch)
             root_logger.info("Epoch " + str(epoch + 1) + "/" + str(run_step_config['epochs']))
             epoch_training_loss = 0.0
             ds_iterator = iter(ds_loader)
-
-            # decide single- or multi-gpu train
-            gpu_count = torch.cuda.device_count()
-            root_logger.info("Training with " + str(gpu_count) + " GPUs")
             
             # start to train
             for _ in trange(len(ds_iterator)):
@@ -171,6 +168,8 @@ def learner(model, loss_fn, run_step_config):
 
 
 def main(argv):
+    global device
+    device = torch.device(f'cuda:{FLAGS.gpu_id}')
     # record start time
     run_step_start_time = time.time()
     run_step_start_datetime = datetime.datetime.fromtimestamp(run_step_start_time).strftime('%c')
