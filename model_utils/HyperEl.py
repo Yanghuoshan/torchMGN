@@ -10,8 +10,6 @@ from model_utils import encode_process_decode
 
 import torch_scatter
 
-device = torch.device('cuda')
-
 
 class Model(nn.Module):
     """Model for static cloth simulation."""
@@ -64,7 +62,7 @@ class Model(nn.Module):
         world_connection_matrix = world_connection_matrix.fill_diagonal_(False)
 
         # remove world edge node pairs that already exist in mesh edge collection
-        world_connection_matrix[senders, receivers] = torch.tensor(False, dtype=torch.bool, device=device)
+        world_connection_matrix[senders, receivers] = torch.tensor(False, dtype=torch.bool, device=senders.device)
 
         # only obstacle and handle node as sender and normal node as receiver
         '''no_connection_mask = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.OBSTACLE.value], device=device))
@@ -252,7 +250,7 @@ def loss_fn(inputs, network_output, model):
     # build loss
     # print(network_output[187])
     node_type = inputs['node_type']
-    loss_mask = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.NORMAL.value], device=device).int())
+    loss_mask = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.NORMAL.value], device=node_type.device).int())
     # loss_mask = torch.logical_not(loss_mask)
     # loss_mask = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.OBSTACLE.value], device=device).int())
     # loss_mask = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.NORMAL.value], device=device).int())
