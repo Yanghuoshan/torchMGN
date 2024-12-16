@@ -14,6 +14,7 @@ import gc
 from dataset_utils import datasets 
 from model_utils import HyperEl
 from model_utils.common import NodeType
+from model_utils.encode_process_decode import init_weights
 from run_utils.utils import *
 
 import time
@@ -57,6 +58,7 @@ flags.DEFINE_string('model_last_run_dir', None,
 flags.DEFINE_boolean('use_prev_config', True, 'Decide whether to use the configuration from last run step')
 device = None
 
+
 def learner(model, loss_fn, run_step_config):
     root_logger = logging.getLogger()
     root_logger.info(f"Use gpu {FLAGS.gpu_id}")
@@ -88,6 +90,8 @@ def learner(model, loss_fn, run_step_config):
     loss_count = 0
     losses = []
 
+    is_dry_run = True
+
     while not_reached_max_steps:
         for epoch in range(run_step_config['epochs'])[trained_epoch:]:
             # model will train itself with the whole dataset
@@ -100,12 +104,32 @@ def learner(model, loss_fn, run_step_config):
             root_logger.info("Epoch " + str(epoch + 1) + "/" + str(run_step_config['epochs']))
             epoch_training_loss = 0.0
             ds_iterator = iter(ds_loader)
-            
-            # start to train
-            for _ in trange(len(ds_iterator)):
 
+            # dry run
+            if is_dry_run:
                 if FLAGS.is_data_graph:
                     input = next(ds_iterator)
+                    graph =input[0][0].to(device)
+                    target = input[0][1].to(device)
+                    node_type = input[0][2].to(device)
+
+                    model.forward_with_graph(graph,True)
+                    
+                else:
+                    input = next(ds_iterator)[0]
+                    for k in input:
+                        input[k]=input[k].to(device)
+
+                    model(input,is_training=True)
+
+                model.apply(init_weights)
+                    
+                is_dry_run = False
+            root_logger.info("Dry run finished")
+            
+            # start to train
+            for input in ds_iterator:
+                if FLAGS.is_data_graph:
                     graph =input[0][0].to(device)
                     target = input[0][1].to(device)
                     node_type = input[0][2].to(device)
@@ -113,7 +137,7 @@ def learner(model, loss_fn, run_step_config):
                     out = model.forward_with_graph(graph,True)
                     loss = loss_fn(target,out,node_type,model)
                 else:
-                    input = next(ds_iterator)[0]
+                    input = input[0]
                     for k in input:
                         input[k]=input[k].to(device)
 

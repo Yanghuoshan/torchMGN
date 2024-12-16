@@ -58,6 +58,11 @@ class MultiGraph:
 # MultiGraph = collections.namedtuple('Graph', ['node_features', 'edge_sets'])
 # MultiGraphWithPos = collections.namedtuple('Graph', ['node_features', 'edge_sets', 'target_feature', 'model_type', 'node_dynamic'])
 
+def init_weights(m):
+    if isinstance(m, nn.LazyLinear):
+        nn.init.normal_(m.weight, mean=0.0, std=0.02)
+        if m.bias is not None:
+            nn.init.constant_(m.bias, 0)
 
 class LazyMLP(nn.Module):
     def __init__(self, output_sizes):
@@ -67,7 +72,8 @@ class LazyMLP(nn.Module):
         for index, output_size in enumerate(output_sizes):
             self._layers_ordered_dict["linear_" + str(index)] = nn.LazyLinear(output_size)
             if index < (num_layers - 1):
-                self._layers_ordered_dict["relu_" + str(index)] = nn.ReLU()
+                # self._layers_ordered_dict["relu_" + str(index)] = nn.ReLU()
+                self._layers_ordered_dict["relu_" + str(index)] = nn.Sigmoid()
         self.layers = nn.Sequential(self._layers_ordered_dict)
 
     def forward(self, input):
@@ -103,8 +109,8 @@ class GraphNetBlock(nn.Module):
         self.node_model = model_fn(output_size)
         self.message_passing_aggregator = message_passing_aggregator
 
-        self.linear_layer = nn.LazyLinear(1)
-        self.leaky_relu = nn.LeakyReLU(negative_slope=0.2)
+        # self.linear_layer = nn.LazyLinear(1)
+        # self.leaky_relu = nn.LeakyReLU(negative_slope=0.2)
 
     def _update_edge_features(self, node_features, edge_set):
         """Aggregrates node features, and applies edge function."""
