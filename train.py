@@ -33,9 +33,12 @@ FLAGS = flags.FLAGS
 # common run configuration
 flags.DEFINE_enum('model', 'HyperEl', ['HyperEl'], 'Select model to run.')
 flags.DEFINE_string('output_dir','D:\\project_summary\\Graduation Project\\torchMGN\\','path to output_dir')
+
 flags.DEFINE_string('datasets_dir','D:\\project_summary\\Graduation Project\\tmp\\datasets_np','path to datasets')
 flags.DEFINE_string('dataset', 'deforming_plate', ['deforming_plate'])
+flags.DEFINE_boolean('is_data_graph',False,'is dataloader output graph')
 flags.DEFINE_integer('prefetch',1,'prefetch size')
+
 flags.DEFINE_integer('epochs', 2, 'Num of training epochs')
 flags.DEFINE_integer('max_steps', 10 ** 6, 'Num of training steps')
 flags.DEFINE_integer('nsave_steps', int(5000), help='Number of steps at which to save the model.')
@@ -88,17 +91,35 @@ def learner(model, loss_fn, run_step_config):
     while not_reached_max_steps:
         for epoch in range(run_step_config['epochs'])[trained_epoch:]:
             # model will train itself with the whole dataset
-            ds_loader = datasets.get_dataloader(run_step_config['dataset_dir'],model=run_step_config['model'],split='train',shuffle=True,prefetch=FLAGS.prefetch)
+            ds_loader = datasets.get_dataloader(run_step_config['dataset_dir'],
+                                                model=run_step_config['model'],
+                                                split='train',
+                                                shuffle=True,
+                                                prefetch=FLAGS.prefetch, 
+                                                is_data_graph=FLAGS.is_data_graph)
             root_logger.info("Epoch " + str(epoch + 1) + "/" + str(run_step_config['epochs']))
             epoch_training_loss = 0.0
             ds_iterator = iter(ds_loader)
             
             # start to train
-            for _ in range(len(ds_iterator)):
-                data = next(ds_iterator)
-                for k,v in data.items(): data[k] = data[k].squeeze(0).to(device) # preprocess
-                result = model(data, is_training=True)
-                loss = loss_fn(data, result, model)
+            for _ in trange(len(ds_iterator)):
+
+                if FLAGS.is_data_graph:
+                    input = next(ds_iterator)
+                    graph =input[0][0].to(device)
+                    target = input[0][1].to(device)
+                    node_type = input[0][2].to(device)
+
+                    out = model.forward_with_graph(graph,True)
+                    loss = loss_fn(target,out,node_type,model)
+                else:
+                    input = next(ds_iterator)[0]
+                    for k in input:
+                        input[k]=input[k].to(device)
+
+                    out = model(input,is_training=True)
+                    loss = loss_fn(input,out,model)
+
                 if pass_count > 0:
                     pass_count -= 1
                 else:
@@ -234,7 +255,11 @@ def main(argv):
                                                  run_step_config['message_passing_aggregator'],
                                                  run_step_config['message_passing_steps'],
                                                  device = device)
-    loss_fn = eval(run_step_config['model']).loss_fn
+    if FLAGS.is_data_graph:
+        loss_fn = eval(run_step_config['model']).loss_fn_alter
+    else:
+        loss_fn = eval(run_step_config['model']).loss_fn
+
     if last_run_dir is not None:
         last_run_step_dir = find_nth_latest_run_step(last_run_dir, 2)
         model.load_model(os.path.join(last_run_step_dir, 'checkpoint', "model_checkpoint"))

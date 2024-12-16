@@ -32,13 +32,34 @@ PARAMETERS = {
 }
 params = PARAMETERS['deform']
 model = HyperEl.Model(4, message_passing_steps=7).to(device)
-loss_fn = HyperEl.loss_fn
-dl = datasets.get_dataloader("D:\project_summary\Graduation Project\\tmp\datasets_np\deforming_plate",model="HyperEl")
+is_data_graph = False
+
+dl = datasets.get_dataloader("D:\project_summary\Graduation Project\\tmp\datasets_np\deforming_plate",model="HyperEl",is_data_graph=is_data_graph)
 dl = iter(dl)
-input = next(dl) 
-for k,v in input.items():
-    input[k] = input[k].squeeze(0).to(device)
+if is_data_graph:
+    loss_fn = HyperEl.loss_fn_alter
+    input = next(dl)
+    graph =input[0][0]
+    target = input[0][1]
+    node_type = input[0][2]
+
+    graph = graph.to(device)
+    target = target.to(device)
+    node_type = node_type.to(device)
+
 # print(input)
-out = model(input,is_training=True)
-loss = loss_fn(input,out,model)
-print(loss)
+# out = model(input,is_training=True)
+    out = model.forward_with_graph(graph,True)
+    loss = loss_fn(target,out,node_type,model)
+    print(loss)
+else:
+    loss_fn = HyperEl.loss_fn
+    input = next(dl)[0]
+    for k in input:
+        input[k]=input[k].to(device)
+
+    out = model(input,is_training=True)
+    loss = loss_fn(input,out,model)
+    print(loss)
+
+

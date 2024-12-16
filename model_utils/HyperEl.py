@@ -17,12 +17,12 @@ class Model(nn.Module):
     def __init__(self, output_size, core_model_name=encode_process_decode, message_passing_aggregator='sum',
                  message_passing_steps=15, device='cuda'):
         super(Model, self).__init__()
-        self._output_normalizer = normalization.Normalizer(size=output_size, name='output_normalizer', device=device)
+        self._output_normalizer = normalization.Normalizer(size=output_size, name='output_normalizer' ,device=device)
         # self._stress_output_normalizer = normalization.Normalizer(size=3, name='stress_output_normalizer')# NOT USED ACTUALLY
         # self._node_normalizer = normalization.Normalizer(size=9, name='node_normalizer')# NOT USED ACTUALLY
         # self._node_dynamic_normalizer = normalization.Normalizer(size=1, name='node_dynamic_normalizer')# NOT USED ACTUALLY
-        self._mesh_edge_normalizer = normalization.Normalizer(size=8, name='mesh_edge_normalizer', device=device)
-        self._world_edge_normalizer = normalization.Normalizer(size=4, name='world_edge_normalizer', device=device) 
+        self._mesh_edge_normalizer = normalization.Normalizer(size=8, name='mesh_edge_normalizer' ,device=device)
+        self._world_edge_normalizer = normalization.Normalizer(size=4, name='world_edge_normalizer' ,device=device) 
         self._displacement_base = None
 
         self.core_model_name = core_model_name
@@ -173,6 +173,24 @@ class Model(nn.Module):
             return self.learned_model(graph)
         else:
             return self._update(inputs, self.learned_model(graph))
+    
+    def forward_with_graph(self, graph, is_training):
+        # graph features normalization
+        new_mesh_edges = self.core_model.EdgeSet(name='mesh_edges',
+                                                 features=self._mesh_edge_normalizer(graph.edge_sets[0].features),
+                                                 # features=mesh_edge_features,
+                                                 receivers=graph.edge_sets[0].receivers,
+                                                 senders=graph.edge_sets[0].senders) 
+        new_world_edges = self.core_model.EdgeSet(name='world_edges',
+                                                  features=self._world_edge_normalizer(graph.edge_sets[1].features),
+                                                  # features=mesh_edge_features,
+                                                  receivers=graph.edge_sets[1].receivers,
+                                                  senders=graph.edge_sets[1].senders) 
+        new_graph = self.core_model.MultiGraph(node_features=graph.node_features, edge_sets=[new_mesh_edges, new_world_edges])
+
+        if is_training:
+            return self.learned_model(new_graph)
+        
 
     def _update(self, inputs, per_node_network_output):
         """Integrate model outputs."""
@@ -233,7 +251,6 @@ def loss_fn(inputs, network_output, model):
     target_velocity = target_position - cur_position
 
     target = torch.concat((target_velocity, target_stress), dim=1)
-    node_type = inputs['node_type']
     '''scripted_node_mask = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.NORMAL.value], device=device))
     scripted_node_mask = torch.logical_not(scripted_node_mask)
     scripted_node_mask = torch.stack([scripted_node_mask] * 3, dim=1)
@@ -261,4 +278,43 @@ def loss_fn(inputs, network_output, model):
     # error = torch.sum((target_normalized - network_output) ** 2, dim=1)
     # error += torch.sum((target_normalized_stress - network_output) ** 2, dim=1)
     # loss = torch.mean(error)
+    return loss
+
+def loss_fn_alter(target, network_output, node_type, model):
+    """L2 loss on position."""
+    # build target acceleration
+    
+    # world_pos = inputs['world_pos']
+    # target_world_pos = inputs['target_world_pos']
+    # target_stress = inputs['stress']
+    
+
+    # cur_position = world_pos
+    # target_position = target_world_pos
+    # target_velocity = target_position - cur_position
+
+    # target = torch.concat((target_velocity, target_stress), dim=1)
+    '''scripted_node_mask = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.NORMAL.value], device=device))
+    scripted_node_mask = torch.logical_not(scripted_node_mask)
+    scripted_node_mask = torch.stack([scripted_node_mask] * 3, dim=1)
+    target_velocity = torch.where(scripted_node_mask, torch.tensor(0., device=device), target_velocity)'''
+
+    target_normalizer = model.get_output_normalizer()
+    target_normalized = target_normalizer(target)
+
+    '''node_type = inputs['node_type']
+    scripted_node_mask = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.OBSTACLE.value], device=device))
+    scripted_node_mask = torch.stack([scripted_node_mask] * 3, dim=1)
+    target_normalized = torch.where(scripted_node_mask, torch.tensor(0., device=device), target_normalized)'''
+
+    # build loss
+    # print(network_output[187])
+    loss_mask = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.NORMAL.value], device=node_type.device).int())
+    # loss_mask = torch.logical_not(loss_mask)
+    # loss_mask = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.OBSTACLE.value], device=device).int())
+    # loss_mask = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.NORMAL.value], device=device).int())
+    # loss_mask = torch.logical_not(loss_mask)
+    error = torch.sum((target_normalized - network_output) ** 2, dim=1)
+    loss = torch.mean(error[loss_mask])
+
     return loss

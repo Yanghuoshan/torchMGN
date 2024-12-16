@@ -19,6 +19,8 @@
 import enum
 # import tensorflow.compat.v1 as tf
 import torch
+import torch.nn.functional as F
+from model_utils import encode_process_decode
 
 
 class NodeType(enum.IntEnum):
@@ -90,3 +92,71 @@ def rectangles_to_edges(faces):
     receivers = receivers.to(torch.int64)
     two_way_connectivity = (torch.cat((senders, receivers), dim=0), torch.cat((receivers, senders), dim=0))
     return {'two_way_connectivity': two_way_connectivity, 'senders': senders, 'receivers': receivers}
+
+
+def build_graph_HyperEl(inputs, rectangle=True):
+    """Builds input graph."""
+    world_pos = inputs['world_pos']
+
+    node_type = inputs['node_type']
+
+    one_hot_node_type = F.one_hot(node_type[:, 0].to(torch.int64), NodeType.SIZE).float()
+
+    cells = inputs['cells']
+    decomposed_cells = triangles_to_edges(cells, rectangle=True)
+    senders, receivers = decomposed_cells['two_way_connectivity']
+
+
+    # find world edge
+    # 原论文应选用最小的mesh域的距离
+    # 且原论文也没有规定obstacle和其他种类的node只能作为sender或receiver
+    radius = 0.03
+    world_distance_matrix = torch.cdist(world_pos, world_pos, p=2)
+    world_connection_matrix = torch.where(world_distance_matrix < radius, True, False)
+
+    # remove self connection
+    world_connection_matrix = world_connection_matrix.fill_diagonal_(False)
+
+    # remove world edge node pairs that already exist in mesh edge collection
+    world_connection_matrix[senders, receivers] = torch.tensor(False, dtype=torch.bool, device=senders.device)
+
+
+    world_senders, world_receivers = torch.nonzero(world_connection_matrix, as_tuple=True)
+
+    relative_world_pos = (torch.index_select(input=world_pos, dim=0, index=world_receivers) -
+                          torch.index_select(input=world_pos, dim=0, index=world_senders))
+
+    world_edge_features = torch.cat((
+        relative_world_pos,
+        torch.norm(relative_world_pos, dim=-1, keepdim=True)), dim=-1)
+
+    world_edges = encode_process_decode.EdgeSet(
+        name='world_edges',
+        features=world_edge_features,
+        receivers=world_receivers,
+        senders=world_senders)
+
+
+
+    mesh_pos = inputs['mesh_pos']
+    relative_mesh_pos = (torch.index_select(mesh_pos, 0, senders) -
+                         torch.index_select(mesh_pos, 0, receivers))
+    all_relative_world_pos = (torch.index_select(input=world_pos, dim=0, index=senders) -
+                          torch.index_select(input=world_pos, dim=0, index=receivers))
+    mesh_edge_features = torch.cat((
+        relative_mesh_pos,
+        torch.norm(relative_mesh_pos, dim=-1, keepdim=True),
+        all_relative_world_pos,
+        torch.norm(all_relative_world_pos, dim=-1, keepdim=True)), dim=-1)
+
+    mesh_edges = encode_process_decode.EdgeSet(
+        name='mesh_edges',
+        features=mesh_edge_features,
+        receivers=receivers,
+        senders=senders)
+
+    node_features = one_hot_node_type
+
+        
+    return (encode_process_decode.MultiGraph(node_features=node_features,
+                                              edge_sets=[mesh_edges, world_edges]))

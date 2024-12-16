@@ -25,13 +25,38 @@ from torch import nn as nn
 import torch_scatter
 from torch_scatter.composite import scatter_softmax
 import torch.nn.functional as F
+from dataclasses import dataclass,replace
+
+@dataclass
+class EdgeSet:
+    name: str
+    features: torch.Tensor
+    senders: torch.Tensor
+    receivers: torch.Tensor
+
+    def to(self, device):
+        self.features = self.features.to(device)
+        self.senders = self.senders.to(device)
+        self.receivers = self.receivers.to(device)
+        return self
+
+@dataclass
+class MultiGraph:
+    node_features:torch.Tensor
+    edge_sets:list
+
+    def to(self, device):
+        self.node_features = self.node_features.to(device)
+        for es in self.edge_sets:
+            es = es.to(device)
+        return self
 
 # import ripple_machine
 
-EdgeSet = collections.namedtuple('EdgeSet', ['name', 'features', 'senders',
-                                             'receivers'])
-MultiGraph = collections.namedtuple('Graph', ['node_features', 'edge_sets'])
-MultiGraphWithPos = collections.namedtuple('Graph', ['node_features', 'edge_sets', 'target_feature', 'model_type', 'node_dynamic'])
+# EdgeSet = collections.namedtuple('EdgeSet', ['name', 'features', 'senders',
+#                                              'receivers'])
+# MultiGraph = collections.namedtuple('Graph', ['node_features', 'edge_sets'])
+# MultiGraphWithPos = collections.namedtuple('Graph', ['node_features', 'edge_sets', 'target_feature', 'model_type', 'node_dynamic'])
 
 
 class LazyMLP(nn.Module):
@@ -160,7 +185,8 @@ class GraphNetBlock(nn.Module):
         new_edge_sets = []
         for edge_set in graph.edge_sets:
             updated_features = self._update_edge_features(graph.node_features, edge_set)
-            new_edge_sets.append(edge_set._replace(features=updated_features))
+            # new_edge_sets.append(edge_set._replace(features=updated_features)) # namedtuple
+            new_edge_sets.append(replace(edge_set, features=updated_features))
 
         # apply node function
         new_node_features = self._update_node_features(graph.node_features, new_edge_sets)
@@ -171,8 +197,10 @@ class GraphNetBlock(nn.Module):
             mask = mask.repeat(new_node_features.shape[-1])
             mask = mask.view(new_node_features.shape[0], new_node_features.shape[1])
             new_node_features = torch.where(mask, new_node_features, graph.node_features)
-        new_edge_sets = [es._replace(features=es.features + old_es.features)
+        new_edge_sets = [replace(es, features=es.features + old_es.features)
                          for es, old_es in zip(new_edge_sets, graph.edge_sets)]
+        # new_edge_sets = [es._replace(features=es.features + old_es.features)
+        #                  for es, old_es in zip(new_edge_sets, graph.edge_sets)] # namedtuple
         return MultiGraph(new_node_features, new_edge_sets)
 
 
@@ -195,11 +223,13 @@ class Encoder(nn.Module):
             if edge_set.name == "mesh_edges":
                 feature = edge_set.features
                 latent = self.mesh_edge_model(feature)
-                new_edges_sets.append(edge_set._replace(features=latent))
+                # new_edges_sets.append(edge_set._replace(features=latent)) # namedtuple
+                new_edges_sets.append(replace(edge_set, features=latent))
             else:
                 feature = edge_set.features
                 latent = self.world_edge_model(feature)
-                new_edges_sets.append(edge_set._replace(features=latent))
+                # new_edges_sets.append(edge_set._replace(features=latent))
+                new_edges_sets.append(replace(edge_set, features=latent))
         return MultiGraph(node_latents, new_edges_sets)
 
 
