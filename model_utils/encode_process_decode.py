@@ -65,7 +65,7 @@ def init_weights(m):
             nn.init.constant_(m.bias, 0)
 
 class LazyMLP(nn.Module):
-    def __init__(self, output_sizes):
+    def __init__(self, output_sizes, is_Sigmoid=True):
         super().__init__()                        
         num_layers = len(output_sizes)
         self._layers_ordered_dict = OrderedDict()
@@ -73,7 +73,10 @@ class LazyMLP(nn.Module):
             self._layers_ordered_dict["linear_" + str(index)] = nn.LazyLinear(output_size)
             if index < (num_layers - 1):
                 # self._layers_ordered_dict["relu_" + str(index)] = nn.ReLU()
-                self._layers_ordered_dict["relu_" + str(index)] = nn.Sigmoid()
+                if is_Sigmoid:
+                    self._layers_ordered_dict["relu_" + str(index)] = nn.Sigmoid()
+                else:
+                    self._layers_ordered_dict["relu_" + str(index)] = nn.ReLU()
         self.layers = nn.Sequential(self._layers_ordered_dict)
 
     def forward(self, input):

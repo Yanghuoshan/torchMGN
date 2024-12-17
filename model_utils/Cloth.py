@@ -38,7 +38,7 @@ class Model(nn.Module):
         super(Model, self).__init__()
         self._output_normalizer = normalization.Normalizer(size=3, name='output_normalizer', device=device)
         self._node_normalizer = normalization.Normalizer(size=3 + common.NodeType.SIZE, name='node_normalizer', device=device)
-        self._node_dynamic_normalizer = normalization.Normalizer(size=1, name='node_dynamic_normalizer', device=device)
+        # self._node_dynamic_normalizer = normalization.Normalizer(size=1, name='node_dynamic_normalizer', device=device)
         self._mesh_edge_normalizer = normalization.Normalizer(size=7, name='mesh_edge_normalizer',device=device)  # 2D coord + 3D coord + 2*length = 7
         self._world_edge_normalizer = normalization.Normalizer(size=4, name='world_edge_normalizer',device=device)
 

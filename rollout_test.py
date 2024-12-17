@@ -62,4 +62,5 @@ else:
     loss = loss_fn(input,out,model)
     print(loss)
 
+print(model)
 
