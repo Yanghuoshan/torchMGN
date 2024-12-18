@@ -177,7 +177,7 @@ class GraphNetBlock(nn.Module):
         new_node_features = self._update_node_features(graph.node_features, new_edge_sets)
 
         # add residual connections
-        new_node_features += graph.node_features
+        new_node_features = new_node_features + graph.node_features
         if mask is not None:
             mask = mask.repeat(new_node_features.shape[-1])
             mask = mask.view(new_node_features.shape[0], new_node_features.shape[1])
