@@ -28,7 +28,7 @@ from model_utils import encode_process_decode
 
 from dataclasses import replace
 
-device = torch.device('cuda')
+
 
 
 class Model(nn.Module):
@@ -150,11 +150,11 @@ def loss_fn(inputs, network_output, model):
     prev_position = prev_world_pos
     target_position = target_world_pos
     target_acceleration = target_position - 2 * cur_position + prev_position
-    target_normalized = model.get_output_normalizer()(target_acceleration).to(device)
+    target_normalized = model.get_output_normalizer()(target_acceleration)
 
     # build loss
     node_type = inputs['node_type']
-    loss_mask = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.NORMAL.value], device=device).int())
+    loss_mask = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.NORMAL.value], device=node_type.device).int())
     error = torch.sum((target_normalized - network_output) ** 2, dim=1)
     loss = torch.mean(error[loss_mask])
     return loss
@@ -162,7 +162,7 @@ def loss_fn(inputs, network_output, model):
 def loss_fn_alter(target, network_output, node_type, model):
     target_normalizer = model.get_output_normalizer()
     target_normalized = target_normalizer(target)
-    loss_mask = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.NORMAL.value], device=device).int())
+    loss_mask = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.NORMAL.value], device=node_type.device).int())
     error = torch.sum((target_normalized - network_output) ** 2, dim=1)
     loss = torch.mean(error[loss_mask])
     return loss
