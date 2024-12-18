@@ -46,8 +46,8 @@ tf._logging
 FLAGS = flags.FLAGS
 flags.DEFINE_string('in_dir', '../tmp/datasets/', 'Input datasets directory')
 flags.DEFINE_string('out_dir', '../tmp/datasets_np/','Output numpy datasets directory')
-flags.DEFINE_string('dataset_name', 'cylinder_flow', '')
-flags.DEFINE_string('split', 'valid', '')
+flags.DEFINE_string('dataset_name', 'flag_simple', '')
+flags.DEFINE_string('split', 'train', '')
 flags.DEFINE_boolean('debug', False, 'Enable debugging output')
 
 def _parse(proto, meta):
@@ -128,7 +128,7 @@ def main(argv):
 
             if first: first = False
             else: print(',', file=meta_file)
-
+            
             np.savez_compressed(os.path.join(out_path, f'ex{i}.npz'), **record)
             print(f'        "ex{i}.npz": {ns}', file=meta_file, end='')
 

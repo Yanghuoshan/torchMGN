@@ -12,7 +12,7 @@ import torch
 import gc
 
 from dataset_utils import datasets 
-from model_utils import HyperEl
+from model_utils import HyperEl,Cloth
 from model_utils.common import NodeType
 from model_utils.encode_process_decode import init_weights
 from run_utils.utils import *
@@ -32,11 +32,11 @@ from tqdm import tqdm, trange
 FLAGS = flags.FLAGS
 
 # common run configuration
-flags.DEFINE_enum('model', 'HyperEl', ['HyperEl','Cloth'], 'Select model to run.')
+flags.DEFINE_enum('model', 'Cloth', ['HyperEl','Cloth'], 'Select model to run.')
 flags.DEFINE_string('output_dir','D:\\project_summary\\Graduation Project\\torchMGN\\','path to output_dir')
 
 flags.DEFINE_string('datasets_dir','D:\\project_summary\\Graduation Project\\tmp\\datasets_np','path to datasets')
-flags.DEFINE_string('dataset', 'deforming_plate', ['deforming_plate'])
+flags.DEFINE_enum('dataset', 'flag_simple', ['deforming_plate','flag_simple'], 'Select dataset to run')
 flags.DEFINE_boolean('is_data_graph',False,'is dataloader output graph')
 flags.DEFINE_integer('prefetch',1,'prefetch size')
 
@@ -46,10 +46,11 @@ flags.DEFINE_integer('nsave_steps', int(5000), help='Number of steps at which to
 flags.DEFINE_integer('gpu_id', 0, help='choose which gpu to use')
 
 # core model configuration
-flags.DEFINE_integer('output_size', 4, 'Num of output_size')
+flags.DEFINE_integer('output_size', 3, 'Num of output_size')
 flags.DEFINE_enum('core_model', 'encode_process_decode', ['encode_process_decode'], 'Core model to be used')
 flags.DEFINE_enum('message_passing_aggregator', 'sum', ['sum', 'max', 'min', 'mean', 'pna'], 'No. of training epochs')
 flags.DEFINE_integer('message_passing_steps', 5, 'No. of training epochs')
+# flags.DEFINE_boolean('is_use_world_edge', False, 'Is the model use world edges') 
 flags.DEFINE_string('model_last_run_dir', None, 
                     # os.path.join('E:\\meshgraphnets\\output\\deforming_plate', 'Sat-Feb-12-12-14-04-2022'),
                     # os.path.join('/home/i53/student/ruoheng_ma/meshgraphnets/output/deforming_plate', 'Mon-Jan--3-15-18-53-2022'),
@@ -235,6 +236,7 @@ def main(argv):
                        'core_model': FLAGS.core_model,
                        'message_passing_aggregator': FLAGS.message_passing_aggregator,
                        'message_passing_steps': FLAGS.message_passing_steps,
+                    #    'is_use_world_edge':FLAGS.is_use_world_edge,
                        'dataset_dir': os.path.join(FLAGS.datasets_dir, FLAGS.dataset),
                        'last_run_dir': None}    
     if last_run_dir is not None and use_prev_config:
@@ -277,6 +279,7 @@ def main(argv):
     model = eval(run_step_config['model']).Model(run_step_config['output_size'], 
                                                  run_step_config['message_passing_aggregator'],
                                                  run_step_config['message_passing_steps'],
+                                                #  run_step_config['is_use_world_edge'],
                                                  device = device)
     if FLAGS.is_data_graph:
         loss_fn = eval(run_step_config['model']).loss_fn_alter

@@ -34,7 +34,7 @@ device = torch.device('cuda')
 class Model(nn.Module):
     """Model for static cloth simulation."""
 
-    def __init__(self, output_size, message_passing_aggregator='sum', message_passing_steps=15, device='cuda'):
+    def __init__(self, output_size, message_passing_aggregator='sum', message_passing_steps=15, is_use_world_edge=False, device='cuda'):
         super(Model, self).__init__()
         self._output_normalizer = normalization.Normalizer(size=3, name='output_normalizer', device=device)
         self._node_normalizer = normalization.Normalizer(size=3 + common.NodeType.SIZE, name='node_normalizer', device=device)
@@ -53,7 +53,8 @@ class Model(nn.Module):
             latent_size=128,
             num_layers=2,
             message_passing_steps=self.message_passing_steps,
-            message_passing_aggregator=self.message_passing_aggregator)
+            message_passing_aggregator=self.message_passing_aggregator,
+            is_use_world_edge = is_use_world_edge)
 
     def _build_graph(self, inputs):
         """Builds input graph."""

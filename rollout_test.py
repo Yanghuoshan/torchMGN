@@ -9,6 +9,7 @@ import torch
 from model_utils import HyperEl,Cloth
 from model_utils import deform_eval
 from model_utils import common
+from model_utils.encode_process_decode import init_weights
 import logging
 import numpy as np
 import json
@@ -61,6 +62,9 @@ else:
         input[k]=input[k].to(device)
 
     out = model(input,is_training=True)
-    loss = loss_fn(input,out,model)
-    print(loss)
+    # loss = loss_fn(input,out,model)
+    # print(loss)
+    print(model)
+    model.apply(init_weights)
+
 

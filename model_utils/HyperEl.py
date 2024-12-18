@@ -15,8 +15,7 @@ from dataclasses import replace
 class Model(nn.Module):
     """Model for static cloth simulation."""
 
-    def __init__(self, output_size, message_passing_aggregator='sum',
-                 message_passing_steps=15, device='cuda'):
+    def __init__(self, output_size, message_passing_aggregator='sum', message_passing_steps=15, is_use_world_edge=True, device='cuda'):
         super(Model, self).__init__()
         self._output_normalizer = normalization.Normalizer(size=output_size, name='output_normalizer' ,device=device)
         # self._stress_output_normalizer = normalization.Normalizer(size=3, name='stress_output_normalizer')# NOT USED ACTUALLY
@@ -36,7 +35,8 @@ class Model(nn.Module):
             latent_size=128,
             num_layers=2,
             message_passing_steps=self.message_passing_steps,
-            message_passing_aggregator=self.message_passing_aggregator)
+            message_passing_aggregator=self.message_passing_aggregator,
+            is_use_world_edge=is_use_world_edge)
 
     def _build_graph(self, inputs):
         """Builds input graph."""

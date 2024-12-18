@@ -14,6 +14,8 @@ sys.path.append('../')
 import torch.utils
 import torch.utils.data
 
+from tqdm import trange
+
 from model_utils.common import build_graph_HyperEl, build_graph_Cloth
 
 class HyperEl_datasets(torch.utils.data.Dataset):
@@ -230,10 +232,10 @@ if __name__ == "__main__":
     # ds = deforming_datasets("D:\project_summary\Graduation Project\\tmp\datasets_np\deforming_plate\\train")
     # ds = cloth_datasets("D:\project_summary\Graduation Project\\tmp\datasets_np\\flag_simple\\train")
     # ds = flow_datasets("D:\project_summary\Graduation Project\\tmp\datasets_np\\cylinder_flow\\train")
-    dl = get_dataloader("D:\project_summary\Graduation Project\\tmp\datasets_np\\flag_simple",model="Cloth",split="train",prefetch=2,is_data_graph=True)
+    dl = get_dataloader("D:\project_summary\Graduation Project\\tmp\datasets_np\\flag_simple",model="Cloth",split="train",prefetch=0,is_data_graph=True)
     dl = iter(dl)
     start_time = time.time()
-    for _ in range(10):
+    for _ in range(1000):
         next(dl)
     end_time = time.time()
     

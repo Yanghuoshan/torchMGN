@@ -80,10 +80,11 @@ class AttentionModel(nn.Module):
 class GraphNetBlock(nn.Module):
     """Multi-Edge Interaction Network with residual connections."""
 
-    def __init__(self, model_fn, output_size, message_passing_aggregator):
+    def __init__(self, model_fn, output_size, message_passing_aggregator, is_use_world_edge):
         super().__init__()
         self.mesh_edge_model = model_fn(output_size)
-        self.world_edge_model = model_fn(output_size)
+        if is_use_world_edge:
+            self.world_edge_model = model_fn(output_size)
         self.node_model = model_fn(output_size)
         self.message_passing_aggregator = message_passing_aggregator
 
@@ -191,13 +192,14 @@ class GraphNetBlock(nn.Module):
 class Encoder(nn.Module):
     """Encodes node and edge features into latent features."""
 
-    def __init__(self, make_mlp, latent_size):
+    def __init__(self, make_mlp, latent_size, is_use_world_edge):
         super().__init__()
         self._make_mlp = make_mlp
         self._latent_size = latent_size
         self.node_model = self._make_mlp(latent_size)
         self.mesh_edge_model = self._make_mlp(latent_size)
-        self.world_edge_model = self._make_mlp(latent_size)
+        if is_use_world_edge:
+            self.world_edge_model = self._make_mlp(latent_size)
 
     def forward(self, graph):
         node_latents = self.node_model(graph.node_features)
@@ -238,14 +240,13 @@ class Processor(nn.Module):
     Option: choose whether to normalize the high rank node connection
     '''
 
-    def __init__(self, make_mlp, output_size, message_passing_steps, message_passing_aggregator, attention=False,
-                 stochastic_message_passing_used=False):
+    def __init__(self, make_mlp, output_size, message_passing_steps, message_passing_aggregator, is_use_world_edge):
         super().__init__()
-        self.stochastic_message_passing_used = stochastic_message_passing_used
         self.graphnet_blocks = nn.ModuleList()
         for index in range(message_passing_steps):
             self.graphnet_blocks.append(GraphNetBlock(model_fn=make_mlp, output_size=output_size,
                                                       message_passing_aggregator=message_passing_aggregator,
+                                                      is_use_world_edge=is_use_world_edge
                                                     ))
 
     def forward(self, latent_graph, normalized_adj_mat=None, mask=None):
@@ -263,7 +264,9 @@ class EncodeProcessDecode(nn.Module):
                  output_size,
                  latent_size,
                  num_layers,
-                 message_passing_aggregator, message_passing_steps):
+                 message_passing_aggregator, 
+                 message_passing_steps,
+                 is_use_world_edge):
         super().__init__()
         self._latent_size = latent_size
         self._output_size = output_size
@@ -271,11 +274,11 @@ class EncodeProcessDecode(nn.Module):
         self._message_passing_steps = message_passing_steps
         self._message_passing_aggregator = message_passing_aggregator
         
-        self.encoder = Encoder(make_mlp=self._make_mlp, latent_size=self._latent_size)
+        self.encoder = Encoder(make_mlp=self._make_mlp, latent_size=self._latent_size, is_use_world_edge=is_use_world_edge)
         self.processor = Processor(make_mlp=self._make_mlp, output_size=self._latent_size,
                                    message_passing_steps=self._message_passing_steps,
                                    message_passing_aggregator=self._message_passing_aggregator,
-                                   stochastic_message_passing_used=False)
+                                   is_use_world_edge=is_use_world_edge)
         self.decoder = Decoder(make_mlp=functools.partial(self._make_mlp, layer_norm=False),
                                output_size=self._output_size)
 
