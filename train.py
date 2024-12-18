@@ -32,7 +32,7 @@ from tqdm import tqdm, trange
 FLAGS = flags.FLAGS
 
 # common run configuration
-flags.DEFINE_enum('model', 'HyperEl', ['HyperEl'], 'Select model to run.')
+flags.DEFINE_enum('model', 'HyperEl', ['HyperEl','Cloth'], 'Select model to run.')
 flags.DEFINE_string('output_dir','D:\\project_summary\\Graduation Project\\torchMGN\\','path to output_dir')
 
 flags.DEFINE_string('datasets_dir','D:\\project_summary\\Graduation Project\\tmp\\datasets_np','path to datasets')
@@ -275,7 +275,6 @@ def main(argv):
 
     # create or load model
     model = eval(run_step_config['model']).Model(run_step_config['output_size'], 
-                                                 run_step_config['core_model'], 
                                                  run_step_config['message_passing_aggregator'],
                                                  run_step_config['message_passing_steps'],
                                                  device = device)

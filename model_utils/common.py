@@ -20,7 +20,7 @@ import enum
 # import tensorflow.compat.v1 as tf
 import torch
 import torch.nn.functional as F
-from model_utils import encode_process_decode
+from dataclasses import replace,dataclass
 
 
 class NodeType(enum.IntEnum):
@@ -32,6 +32,30 @@ class NodeType(enum.IntEnum):
     OUTFLOW = 5
     WALL_BOUNDARY = 6
     SIZE = 9
+
+@dataclass
+class EdgeSet:
+    name: str
+    features: torch.Tensor
+    senders: torch.Tensor
+    receivers: torch.Tensor
+
+    def to(self, device):
+        self.features = self.features.to(device)
+        self.senders = self.senders.to(device)
+        self.receivers = self.receivers.to(device)
+        return self
+
+@dataclass
+class MultiGraph:
+    node_features:torch.Tensor
+    edge_sets:list
+
+    def to(self, device):
+        self.node_features = self.node_features.to(device)
+        for es in self.edge_sets:
+            es = es.to(device)
+        return self
 
 
 def triangles_to_edges(faces, rectangle=False):
@@ -130,7 +154,7 @@ def build_graph_HyperEl(inputs, rectangle=True):
         relative_world_pos,
         torch.norm(relative_world_pos, dim=-1, keepdim=True)), dim=-1)
 
-    world_edges = encode_process_decode.EdgeSet(
+    world_edges = EdgeSet(
         name='world_edges',
         features=world_edge_features,
         receivers=world_receivers,
@@ -149,7 +173,7 @@ def build_graph_HyperEl(inputs, rectangle=True):
         all_relative_world_pos,
         torch.norm(all_relative_world_pos, dim=-1, keepdim=True)), dim=-1)
 
-    mesh_edges = encode_process_decode.EdgeSet(
+    mesh_edges = EdgeSet(
         name='mesh_edges',
         features=mesh_edge_features,
         receivers=receivers,
@@ -158,5 +182,40 @@ def build_graph_HyperEl(inputs, rectangle=True):
     node_features = one_hot_node_type
 
         
-    return (encode_process_decode.MultiGraph(node_features=node_features,
+    return (MultiGraph(node_features=node_features,
                                               edge_sets=[mesh_edges, world_edges]))
+
+
+def build_graph_Cloth(inputs, rectangle=False):
+        """Builds input graph."""
+        world_pos = inputs['world_pos']
+        prev_world_pos = inputs['prev_world_pos']
+        node_type = inputs['node_type']
+        velocity = world_pos - prev_world_pos
+        one_hot_node_type = F.one_hot(node_type[:, 0].to(torch.int64), NodeType.SIZE)
+
+        node_features = torch.cat((velocity, one_hot_node_type), dim=-1)
+
+        cells = inputs['cells']
+        decomposed_cells = triangles_to_edges(cells, rectangle=False)
+        senders, receivers = decomposed_cells['two_way_connectivity']
+
+        mesh_pos = inputs['mesh_pos']
+        relative_world_pos = (torch.index_select(input=world_pos, dim=0, index=senders) -
+                              torch.index_select(input=world_pos, dim=0, index=receivers))
+        relative_mesh_pos = (torch.index_select(mesh_pos, 0, senders) -
+                             torch.index_select(mesh_pos, 0, receivers))
+        
+        edge_features = torch.cat((
+            relative_world_pos,
+            torch.norm(relative_world_pos, dim=-1, keepdim=True),
+            relative_mesh_pos,
+            torch.norm(relative_mesh_pos, dim=-1, keepdim=True)), dim=-1)
+
+        mesh_edges = EdgeSet(
+            name='mesh_edges',
+            features=edge_features,
+            receivers=receivers,
+            senders=senders)
+
+        return (MultiGraph(node_features=node_features,edge_sets=[mesh_edges]))

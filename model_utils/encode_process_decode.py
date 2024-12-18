@@ -26,39 +26,14 @@ import torch_scatter
 from torch_scatter.composite import scatter_softmax
 import torch.nn.functional as F
 from dataclasses import dataclass,replace
-
-@dataclass
-class EdgeSet:
-    name: str
-    features: torch.Tensor
-    senders: torch.Tensor
-    receivers: torch.Tensor
-
-    def to(self, device):
-        self.features = self.features.to(device)
-        self.senders = self.senders.to(device)
-        self.receivers = self.receivers.to(device)
-        return self
-
-@dataclass
-class MultiGraph:
-    node_features:torch.Tensor
-    edge_sets:list
-
-    def to(self, device):
-        self.node_features = self.node_features.to(device)
-        for es in self.edge_sets:
-            es = es.to(device)
-        return self
-
-# import ripple_machine
+from model_utils.common import EdgeSet,MultiGraph
 
 # EdgeSet = collections.namedtuple('EdgeSet', ['name', 'features', 'senders',
 #                                              'receivers'])
 # MultiGraph = collections.namedtuple('Graph', ['node_features', 'edge_sets'])
 # MultiGraphWithPos = collections.namedtuple('Graph', ['node_features', 'edge_sets', 'target_feature', 'model_type', 'node_dynamic'])
 
-def init_weights(m):
+def init_weights(m): ## Init lazylinear layers
     if isinstance(m, nn.LazyLinear):
         nn.init.normal_(m.weight, mean=0.0, std=0.02)
         if m.bias is not None:

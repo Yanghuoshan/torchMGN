@@ -6,7 +6,7 @@ import pickle
 from absl import app
 from absl import flags
 import torch
-from model_utils import HyperEl
+from model_utils import HyperEl,Cloth
 from model_utils import deform_eval
 from model_utils import common
 import logging
@@ -25,19 +25,21 @@ from dataset_utils import datasets
 
 device = torch.device('cuda')
 
-PARAMETERS = {
-    'deform': dict(noise=0.003, gamma=1.0, field='world_pos', history=False,
-                  size=3, batch=2, model=HyperEl, evaluator=deform_eval, loss_type='deform',
-                  stochastic_message_passing_used='False')
-}
-params = PARAMETERS['deform']
-model = HyperEl.Model(4, message_passing_steps=7).to(device)
+# PARAMETERS = {
+#     'deform': dict(noise=0.003, gamma=1.0, field='world_pos', history=False,
+#                   size=3, batch=2, model=HyperEl, evaluator=deform_eval, loss_type='deform',
+#                   stochastic_message_passing_used='False')
+# }
+# params = PARAMETERS['deform']
+# model = HyperEl.Model(4, message_passing_steps=7).to(device)
+M = Cloth
+model = M.Model(3, message_passing_steps=7).to(device)
 is_data_graph = False
 
-dl = datasets.get_dataloader("D:\project_summary\Graduation Project\\tmp\datasets_np\deforming_plate",model="HyperEl",is_data_graph=is_data_graph)
+dl = datasets.get_dataloader("D:\project_summary\Graduation Project\\tmp\datasets_np\\flag_simple",model="Cloth",is_data_graph=is_data_graph)
 dl = iter(dl)
 if is_data_graph:
-    loss_fn = HyperEl.loss_fn_alter
+    loss_fn = M.loss_fn_alter
     input = next(dl)
     graph =input[0][0]
     target = input[0][1]
@@ -53,7 +55,7 @@ if is_data_graph:
     loss = loss_fn(target,out,node_type,model)
     print(loss)
 else:
-    loss_fn = HyperEl.loss_fn
+    loss_fn = M.loss_fn
     input = next(dl)[0]
     for k in input:
         input[k]=input[k].to(device)
@@ -61,6 +63,4 @@ else:
     out = model(input,is_training=True)
     loss = loss_fn(input,out,model)
     print(loss)
-
-print(model)
 

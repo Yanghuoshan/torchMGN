@@ -9,12 +9,13 @@ from model_utils import normalization
 from model_utils import encode_process_decode
 
 import torch_scatter
+from dataclasses import replace
 
 
 class Model(nn.Module):
     """Model for static cloth simulation."""
 
-    def __init__(self, output_size, core_model_name=encode_process_decode, message_passing_aggregator='sum',
+    def __init__(self, output_size, message_passing_aggregator='sum',
                  message_passing_steps=15, device='cuda'):
         super(Model, self).__init__()
         self._output_normalizer = normalization.Normalizer(size=output_size, name='output_normalizer' ,device=device)
@@ -25,7 +26,6 @@ class Model(nn.Module):
         self._world_edge_normalizer = normalization.Normalizer(size=4, name='world_edge_normalizer' ,device=device) 
         self._displacement_base = None
 
-        self.core_model_name = core_model_name
         self.core_model = encode_process_decode
         self.message_passing_steps = message_passing_steps
         self.message_passing_aggregator = message_passing_aggregator
@@ -176,17 +176,10 @@ class Model(nn.Module):
     
     def forward_with_graph(self, graph, is_training):
         # graph features normalization
-        new_mesh_edges = self.core_model.EdgeSet(name='mesh_edges',
-                                                 features=self._mesh_edge_normalizer(graph.edge_sets[0].features),
-                                                 # features=mesh_edge_features,
-                                                 receivers=graph.edge_sets[0].receivers,
-                                                 senders=graph.edge_sets[0].senders) 
-        new_world_edges = self.core_model.EdgeSet(name='world_edges',
-                                                  features=self._world_edge_normalizer(graph.edge_sets[1].features),
-                                                  # features=mesh_edge_features,
-                                                  receivers=graph.edge_sets[1].receivers,
-                                                  senders=graph.edge_sets[1].senders) 
-        new_graph = self.core_model.MultiGraph(node_features=graph.node_features, edge_sets=[new_mesh_edges, new_world_edges])
+        new_mesh_edges = replace(graph.edge_sets[0],features = self._mesh_edge_normalizer(graph.edge_sets[0].features))
+        new_world_edges = replace(graph.edge_sets[1],features = self._world_edge_normalizer(graph.edge_sets[1].features))
+        
+        new_graph = replace(graph, edge_sets=[new_mesh_edges, new_world_edges])
 
         if is_training:
             return self.learned_model(new_graph)

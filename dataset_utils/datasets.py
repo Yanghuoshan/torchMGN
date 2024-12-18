@@ -14,7 +14,7 @@ sys.path.append('../')
 import torch.utils
 import torch.utils.data
 
-from model_utils.common import build_graph_HyperEl
+from model_utils.common import build_graph_HyperEl, build_graph_Cloth
 
 class HyperEl_datasets(torch.utils.data.Dataset):
     def __init__(self, path, is_data_graph = False):
@@ -22,7 +22,10 @@ class HyperEl_datasets(torch.utils.data.Dataset):
         self.meta = json.loads(open(os.path.join(path, 'metadata.json')).read())
         self.files = self.meta['files']
         self.num_samples = sum(self.files[f] - 1 for f in self.files)
-        self.is_data_graph = is_data_graph
+        if is_data_graph:
+            self.return_item = self.return_graph
+        else:
+            self.return_item = self.return_dict
 
     @property
     def avg_nodes_per_sample(self):
@@ -47,8 +50,10 @@ class HyperEl_datasets(torch.utils.data.Dataset):
     def __getitem__(self, idx : int) -> dict:
         fname, sid = self.idx_to_file(idx)
         data = np.load(os.path.join(self.path, fname))
-        if not self.is_data_graph:
-            return dict(
+        return self.return_item(data, sid)
+        
+    def return_dict(self, data, sid):
+        return dict(
                 cells=torch.LongTensor(data['cells'][sid, ...]),
                 node_type=torch.LongTensor(data['node_type'][sid, ...]),
                 mesh_pos=torch.Tensor(data['mesh_pos'][sid, ...]),
@@ -56,27 +61,28 @@ class HyperEl_datasets(torch.utils.data.Dataset):
                 target_world_pos=torch.Tensor(data['world_pos'][sid + 1, ...]),
                 stress=torch.Tensor(data['stress'][sid, ...])
             )
-        else:
-            d = dict(
-                cells=torch.LongTensor(data['cells'][sid, ...]),
-                node_type=torch.LongTensor(data['node_type'][sid, ...]),
-                mesh_pos=torch.Tensor(data['mesh_pos'][sid, ...]),
-                world_pos=torch.Tensor(data['world_pos'][sid, ...]),
-                target_world_pos=torch.Tensor(data['world_pos'][sid + 1, ...]),
-                stress=torch.Tensor(data['stress'][sid, ...])
-            )
-            graph = build_graph_HyperEl(d)
 
-            world_pos = d['world_pos']
-            target_world_pos = d['target_world_pos']
-            target_stress = d['stress']
-            cur_position = world_pos
-            target_position = target_world_pos
-            target_velocity = target_position - cur_position
+    def return_graph(self, data, sid):
+        d = dict(
+                cells=torch.LongTensor(data['cells'][sid, ...]),
+                node_type=torch.LongTensor(data['node_type'][sid, ...]),
+                mesh_pos=torch.Tensor(data['mesh_pos'][sid, ...]),
+                world_pos=torch.Tensor(data['world_pos'][sid, ...]),
+                target_world_pos=torch.Tensor(data['world_pos'][sid + 1, ...]),
+                stress=torch.Tensor(data['stress'][sid, ...])
+            )
+        graph = build_graph_HyperEl(d)
+
+        world_pos = d['world_pos']
+        target_world_pos = d['target_world_pos']
+        target_stress = d['stress']
+        cur_position = world_pos
+        target_position = target_world_pos
+        target_velocity = target_position - cur_position
             
-            target = torch.concat((target_velocity, target_stress), dim=1) 
+        target = torch.concat((target_velocity, target_stress), dim=1) 
 
-            return [graph, target, d['node_type']]
+        return [graph, target, d['node_type']]
     
 
 class IncompNS_datasets(torch.utils.data.Dataset):
@@ -120,11 +126,15 @@ class IncompNS_datasets(torch.utils.data.Dataset):
         )
 
 class Cloth_datasets(torch.utils.data.Dataset):
-    def __init__(self, path):
+    def __init__(self, path, is_data_graph = False):
         self.path = path
         self.meta = json.loads(open(os.path.join(path, 'metadata.json')).read())
         self.files = self.meta['files']
         self.num_samples = sum(self.files[f] - 2 for f in self.files)
+        if is_data_graph:
+            self.return_item = self.return_graph
+        else:
+            self.return_item = self.return_dict
 
     @property
     def avg_nodes_per_sample(self):
@@ -150,6 +160,9 @@ class Cloth_datasets(torch.utils.data.Dataset):
         fname, sid = self.idx_to_file(idx)
         data = np.load(os.path.join(self.path, fname))
 
+        return self.return_item(data, sid)
+    
+    def return_dict(self, data, sid):
         return dict(
             cells=torch.LongTensor(data['cells'][sid, ...]),
             node_type=torch.LongTensor(data['node_type'][sid, ...]),
@@ -158,6 +171,28 @@ class Cloth_datasets(torch.utils.data.Dataset):
             prev_world_pos=torch.Tensor(data['world_pos'][sid, ...]),
             target_world_pos=torch.Tensor(data['world_pos'][sid + 2, ...])
         )
+
+    def return_graph(self, data, sid):
+        d = dict(
+            cells=torch.LongTensor(data['cells'][sid, ...]),
+            node_type=torch.LongTensor(data['node_type'][sid, ...]),
+            mesh_pos=torch.Tensor(data['mesh_pos'][sid, ...]),
+            world_pos=torch.Tensor(data['world_pos'][sid + 1, ...]),
+            prev_world_pos=torch.Tensor(data['world_pos'][sid, ...]),
+            target_world_pos=torch.Tensor(data['world_pos'][sid + 2, ...])
+        )
+        graph = build_graph_Cloth(d)
+
+        world_pos = d['world_pos']
+        prev_world_pos = d['prev_world_pos']
+        target_world_pos = d['target_world_pos']
+
+        cur_position = world_pos
+        prev_position = prev_world_pos
+        target_position = target_world_pos
+        target = target_position - 2 * cur_position + prev_position
+
+        return [graph, target, d['node_type']]
     
         
 def my_collate_fn(batch): # cumstom collate fn
@@ -195,11 +230,11 @@ if __name__ == "__main__":
     # ds = deforming_datasets("D:\project_summary\Graduation Project\\tmp\datasets_np\deforming_plate\\train")
     # ds = cloth_datasets("D:\project_summary\Graduation Project\\tmp\datasets_np\\flag_simple\\train")
     # ds = flow_datasets("D:\project_summary\Graduation Project\\tmp\datasets_np\\cylinder_flow\\train")
-    dl = get_dataloader("D:\project_summary\Graduation Project\\tmp\datasets_np\deforming_plate",model="HyperEl",split="train",prefetch=1,is_data_graph=True)
+    dl = get_dataloader("D:\project_summary\Graduation Project\\tmp\datasets_np\\flag_simple",model="Cloth",split="train",prefetch=2,is_data_graph=True)
     dl = iter(dl)
     start_time = time.time()
     for _ in range(10):
-        print(next(dl))
+        next(dl)
     end_time = time.time()
     
     execution_time = (end_time - start_time)/10
