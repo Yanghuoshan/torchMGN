@@ -40,9 +40,11 @@ flags.DEFINE_enum('dataset', 'flag_simple', ['deforming_plate','flag_simple'], '
 flags.DEFINE_boolean('is_data_graph',False,'is dataloader output graph')
 flags.DEFINE_integer('prefetch',1,'prefetch size')
 
+flags.DEFINE_float('lr_init',1e-4,'Initial learning rate')
 flags.DEFINE_integer('epochs', 2, 'Num of training epochs')
 flags.DEFINE_integer('max_steps', 10 ** 6, 'Num of training steps')
 flags.DEFINE_integer('nsave_steps', int(5000), help='Number of steps at which to save the model.')
+
 flags.DEFINE_integer('gpu_id', 0, help='choose which gpu to use')
 
 # core model configuration
@@ -63,7 +65,7 @@ device = None
 def learner(model, loss_fn, run_step_config):
     root_logger = logging.getLogger()
     root_logger.info(f"Use gpu {FLAGS.gpu_id}")
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
+    optimizer = torch.optim.Adam(model.parameters(), lr=FLAGS.lr_init)
     scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, 0.1 + 1e-6, last_epoch=-1)
     trained_epoch = 0
     if run_step_config['last_run_dir'] is not None:

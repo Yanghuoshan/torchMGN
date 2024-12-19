@@ -25,7 +25,8 @@
 
 |Files     |Description|
 |:-------- |:-----|
-|common.py|包含对于点类型的规定，和将meshes转换成edges的算法|
-|HyperEl_model.py|用于弹性材料的模型，其中规定了如何构造图数据，以及用于此模型的损失函数|
+|common.py|包含对于点类型的定义，基础图和边集dataclass的定义，将meshes转换成edges的算法,建图算法|
+|HyperEl.py|用于弹性材料的模型，其中规定了如何构造图数据，以及用于此模型的损失函数|
+|Cloth.py|用于布料的模型，其中规定了如何构造图数据，以及用于此模型的损失函数|
 |normalization.py|用于数据归一化的组件|
-|encode_process_decode.py|包含了主体的 encoder_processor_decoder 框架，以及graphnet的实现 |
+|encode_process_decode.py|包含了主体的 encoder_processor_decoder 框架，以及graphnet的实现，sigmoid激活函数不收敛，relu收敛 |

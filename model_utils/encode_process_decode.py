@@ -40,7 +40,7 @@ def init_weights(m): ## Init lazylinear layers
             nn.init.constant_(m.bias, 0)
 
 class LazyMLP(nn.Module):
-    def __init__(self, output_sizes, is_Sigmoid=True):
+    def __init__(self, output_sizes, is_Sigmoid=False):
         super().__init__()                        
         num_layers = len(output_sizes)
         self._layers_ordered_dict = OrderedDict()

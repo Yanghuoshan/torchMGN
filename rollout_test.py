@@ -53,8 +53,22 @@ if is_data_graph:
 # print(input)
 # out = model(input,is_training=True)
     out = model.forward_with_graph(graph,True)
-    loss = loss_fn(target,out,node_type,model)
-    print(loss)
+    model.apply(init_weights)
+    input = next(dl)
+    graph =input[0][0]
+    target = input[0][1]
+    node_type = input[0][2]
+
+    graph = graph.to(device)
+    target = target.to(device)
+    node_type = node_type.to(device)
+
+# print(input)
+# out = model(input,is_training=True)
+    out = model.forward_with_graph(graph,True)
+
+
+    print(out)
 else:
     loss_fn = M.loss_fn
     input = next(dl)[0]
@@ -62,9 +76,17 @@ else:
         input[k]=input[k].to(device)
 
     out = model(input,is_training=True)
-    # loss = loss_fn(input,out,model)
-    # print(loss)
-    print(model)
     model.apply(init_weights)
+    loss = loss_fn(input,out,model)
+    loss.backward()
+    # print(loss)
+    # input = next(dl)[0]
+    # for k in input:
+    #     input[k]=input[k].to(device)
+    # out = model(input,is_training=True)
 
+    # for name, param in model.named_parameters():
+    #     if param.grad is not None:
+    #         print(f"{name} grad: {param.grad}")
+    print(model)
 

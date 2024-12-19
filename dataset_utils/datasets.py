@@ -232,11 +232,11 @@ if __name__ == "__main__":
     # ds = deforming_datasets("D:\project_summary\Graduation Project\\tmp\datasets_np\deforming_plate\\train")
     # ds = cloth_datasets("D:\project_summary\Graduation Project\\tmp\datasets_np\\flag_simple\\train")
     # ds = flow_datasets("D:\project_summary\Graduation Project\\tmp\datasets_np\\cylinder_flow\\train")
-    dl = get_dataloader("D:\project_summary\Graduation Project\\tmp\datasets_np\\flag_simple",model="Cloth",split="train",prefetch=0,is_data_graph=True)
+    dl = get_dataloader("D:\project_summary\Graduation Project\\tmp\datasets_np\\flag_simple",model="Cloth",split="train",prefetch=0,is_data_graph=False)
     dl = iter(dl)
     start_time = time.time()
-    for _ in range(1000):
-        next(dl)
+    
+    print(next(dl))
     end_time = time.time()
     
     execution_time = (end_time - start_time)/10
