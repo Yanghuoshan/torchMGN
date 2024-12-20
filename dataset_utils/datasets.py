@@ -238,6 +238,5 @@ if __name__ == "__main__":
     
     print(next(dl))
     end_time = time.time()
-    
     execution_time = (end_time - start_time)/10
     print(f"运行时间: {execution_time} 秒")
