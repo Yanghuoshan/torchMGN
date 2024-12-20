@@ -53,6 +53,7 @@ flags.DEFINE_enum('core_model', 'encode_process_decode', ['encode_process_decode
 flags.DEFINE_enum('message_passing_aggregator', 'sum', ['sum', 'max', 'min', 'mean', 'pna'], 'No. of training epochs')
 flags.DEFINE_integer('message_passing_steps', 5, 'No. of training epochs')
 # flags.DEFINE_boolean('is_use_world_edge', False, 'Is the model use world edges') 
+
 flags.DEFINE_string('model_last_run_dir', None, 
                     # os.path.join('E:\\meshgraphnets\\output\\deforming_plate', 'Sat-Feb-12-12-14-04-2022'),
                     # os.path.join('/home/i53/student/ruoheng_ma/meshgraphnets/output/deforming_plate', 'Mon-Jan--3-15-18-53-2022'),
@@ -200,7 +201,7 @@ def learner(model, loss_fn, run_step_config):
             if epoch == 13:
                 scheduler.step()
                 root_logger.info("Call scheduler in epoch " + str(epoch))
-            # torch.save({'epoch': epoch}, os.path.join(run_step_config['checkpoint_dir'], "epoch_checkpoint.pth"))
+            torch.save({'epoch': epoch}, os.path.join(run_step_config['checkpoint_dir'], "epoch_checkpoint.pth"))
 
 
     model.save_model(os.path.join(run_step_config['checkpoint_dir'], "model_checkpoint"))
