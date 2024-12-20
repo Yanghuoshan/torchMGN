@@ -77,18 +77,25 @@ def learner(model, loss_fn, run_step_config):
         # epoch_checkpoint = torch.load(
         #     os.path.join(run_step_config['last_run_step_dir'], 'checkpoint', "epoch_checkpoint.pth"))
         # trained_epoch = epoch_checkpoint['epoch'] + 1
+        step_checkpoint = torch.load( os.path.join(run_step_config['last_run_step_dir'], 'checkpoint', "step_checkpoint.pth"))
+        trained_step = step_checkpoint + 1
         root_logger.info("Loaded optimizer, scheduler and model epoch checkpoint\n")
 
     # model training
     # epoch_training_losses = []
+
+    # pre run for normalizer
     fixed_pass_count = 500 # equal to pass_count but doesn't change
     pass_count = 500
     if run_step_config['last_run_dir'] is not None:
         pass_count = 0
-        fixed_pass_count = 0
 
+    # run the left steps
     not_reached_max_steps = True
     step = 0
+    if run_step_config['last_run_dir'] is not None:
+        step = trained_step +1
+
     loss_report_step = 1
     loss_save_interval = 1000
     running_loss = 0.0
@@ -171,11 +178,12 @@ def learner(model, loss_fn, run_step_config):
                 #     root_logger.info(f"Training step: {step+1}/{run_step_config['max_steps']}. Loss: {loss}.")
 
                 # Save model state
-                if (step+1) % run_step_config['nsave_steps'] == 0:
+                if (step + 1- fixed_pass_count) % run_step_config['nsave_steps'] == 0:
                     model.save_model(os.path.join(run_step_config['checkpoint_dir'], f"model_checkpoint"))
                     torch.save(optimizer.state_dict(), os.path.join(run_step_config['checkpoint_dir'], f"optimizer_checkpoint.pth"))
                     torch.save(scheduler.state_dict(), os.path.join(run_step_config['checkpoint_dir'], f"scheduler_checkpoint.pth"))
-                    loss_record = {}
+                    torch.save({'step': step}, os.path.join(run_step_config['checkpoint_dir'], "step_checkpoint.pth"))
+                    
 
                 # Break if step reaches the maximun
                 if (step+1) >= run_step_config['max_steps']:
@@ -183,9 +191,9 @@ def learner(model, loss_fn, run_step_config):
                     break
                 
                 # 清理内存
-                if step % 100 == 0:
-                    gc.collect()
-                    torch.cuda.empty_cache()
+                # if step % 100 == 0:
+                #     gc.collect()
+                #     torch.cuda.empty_cache()
 
                 step += 1
 
@@ -202,8 +210,8 @@ def learner(model, loss_fn, run_step_config):
             if epoch == 13:
                 scheduler.step()
                 root_logger.info("Call scheduler in epoch " + str(epoch))
-            torch.save({'epoch': epoch}, os.path.join(run_step_config['checkpoint_dir'], "epoch_checkpoint.pth"))
-
+            # torch.save({'epoch': epoch}, os.path.join(run_step_config['checkpoint_dir'], "epoch_checkpoint.pth"))
+            torch.save({'step': step}, os.path.join(run_step_config['checkpoint_dir'], "step_checkpoint.pth"))
 
     model.save_model(os.path.join(run_step_config['checkpoint_dir'], "model_checkpoint"))
     torch.save(optimizer.state_dict(), os.path.join(run_step_config['checkpoint_dir'], "optimizer_checkpoint.pth"))
