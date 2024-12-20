@@ -35,7 +35,7 @@ from model_utils.common import EdgeSet,MultiGraph
 
 def init_weights(m): ## Init lazylinear layers
     if isinstance(m, nn.LazyLinear):
-        nn.init.normal_(m.weight, mean=0.0, std=0.02)
+        nn.init.kaiming_uniform_(m.weight, a=0, mode='fan_in', nonlinearity='relu')
         if m.bias is not None:
             nn.init.constant_(m.bias, 0)
 
