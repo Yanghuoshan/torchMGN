@@ -54,13 +54,22 @@ flags.DEFINE_enum('message_passing_aggregator', 'sum', ['sum', 'max', 'min', 'me
 flags.DEFINE_integer('message_passing_steps', 5, 'No. of training epochs')
 # flags.DEFINE_boolean('is_use_world_edge', False, 'Is the model use world edges') 
 
-flags.DEFINE_string('model_last_run_dir', None, 
-                    # os.path.join('E:\\meshgraphnets\\output\\deforming_plate', 'Sat-Feb-12-12-14-04-2022'),
-                    # os.path.join('/home/i53/student/ruoheng_ma/meshgraphnets/output/deforming_plate', 'Mon-Jan--3-15-18-53-2022'),
-                    'Path to the checkpoint file of a network that should continue training')
-# decide whether to use the configuration from last run step
+# decide whether to use the previous model state
+flags.DEFINE_string('model_last_run_dir', None, 'Path to the checkpoint file of a network that should continue training')
+# decide whether to use the configuration from last run step. If not use the previous
 flags.DEFINE_boolean('use_prev_config', True, 'Decide whether to use the configuration from last run step')
+
 device = None
+
+
+def save_checkpoint(model, optimizer, scheduler, step, losses, run_step_config):
+    model.save_model(os.path.join(run_step_config['checkpoint_dir'], f"model_checkpoint"))
+    torch.save(optimizer.state_dict(), os.path.join(run_step_config['checkpoint_dir'], f"optimizer_checkpoint.pth"))
+    torch.save(scheduler.state_dict(), os.path.join(run_step_config['checkpoint_dir'], f"scheduler_checkpoint.pth"))
+    # save the steps that have been already trained
+    torch.save({'trained_step': step}, os.path.join(run_step_config['checkpoint_dir'], "step_checkpoint.pth"))
+    # save the previous losses
+    torch.save({'losses': losses}, os.path.join(run_step_config['checkpoint_dir'], "losses_checkpoint.pth"))
 
 
 def learner(model, loss_fn, run_step_config):
@@ -68,21 +77,21 @@ def learner(model, loss_fn, run_step_config):
     root_logger.info(f"Use gpu {FLAGS.gpu_id}")
     optimizer = torch.optim.Adam(model.parameters(), lr=FLAGS.lr_init)
     scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, 0.1 + 1e-6, last_epoch=-1)
-    trained_epoch = 0
-    if run_step_config['last_run_dir'] is not None:
-        optimizer.load_state_dict(
-            torch.load(os.path.join(run_step_config['last_run_step_dir'], 'checkpoint', "optimizer_checkpoint.pth")))
-        scheduler.load_state_dict(
-            torch.load(os.path.join(run_step_config['last_run_step_dir'], 'checkpoint', "scheduler_checkpoint.pth")))
-        # epoch_checkpoint = torch.load(
-        #     os.path.join(run_step_config['last_run_step_dir'], 'checkpoint', "epoch_checkpoint.pth"))
-        # trained_epoch = epoch_checkpoint['epoch'] + 1
-        step_checkpoint = torch.load( os.path.join(run_step_config['last_run_step_dir'], 'checkpoint', "step_checkpoint.pth"))
-        trained_step = step_checkpoint + 1
-        root_logger.info("Loaded optimizer, scheduler and model epoch checkpoint\n")
 
-    # model training
-    # epoch_training_losses = []
+    losses = []
+    loss_save_interval = 1000
+    running_loss = 0.0
+    trained_epoch = 0
+    trained_step = 0
+
+    if run_step_config['last_run_dir'] is not None:
+        optimizer.load_state_dict(torch.load(os.path.join(run_step_config['last_run_step_dir'], 'checkpoint', "optimizer_checkpoint.pth")))
+        scheduler.load_state_dict(torch.load(os.path.join(run_step_config['last_run_step_dir'], 'checkpoint', "scheduler_checkpoint.pth")))
+
+        trained_step = torch.load(os.path.join(run_step_config['last_run_step_dir'], 'checkpoint', "step_checkpoint.pth"))['trained_step'] + 1
+        losses = torch.load(os.path.join(run_step_config['last_run_step_dir'], 'checkpoint', "losses_checkpoint.pth"))['losses'][:]
+
+        root_logger.info("Loaded optimizer, scheduler and model epoch checkpoint\n")
 
     # pre run for normalizer
     fixed_pass_count = 500 # equal to pass_count but doesn't change
@@ -94,14 +103,9 @@ def learner(model, loss_fn, run_step_config):
     not_reached_max_steps = True
     step = 0
     if run_step_config['last_run_dir'] is not None:
-        step = trained_step +1
-
-    loss_report_step = 1
-    loss_save_interval = 1000
-    running_loss = 0.0
-    loss_count = 0
-    losses = []
+        step = trained_step
     
+    # dry run for lazy linear layers initialization
     is_dry_run = True
     if run_step_config['last_run_dir'] is not None:
         is_dry_run = False
@@ -117,7 +121,6 @@ def learner(model, loss_fn, run_step_config):
                                                 prefetch=FLAGS.prefetch, 
                                                 is_data_graph=FLAGS.is_data_graph)
             root_logger.info("Epoch " + str(epoch + 1) + "/" + str(run_step_config['epochs']))
-            epoch_training_loss = 0.0
             ds_iterator = iter(ds_loader)
 
             # dry run
@@ -173,24 +176,16 @@ def learner(model, loss_fn, run_step_config):
                         running_loss = 0.0
                         root_logger.info(f"Step [{step+1}], Loss: {avg_loss:.4f}")
 
-                # Reprot loss
-                # if (step+1) % loss_report_step == 0:
-                #     root_logger.info(f"Training step: {step+1}/{run_step_config['max_steps']}. Loss: {loss}.")
-
-                # Save model state
+                # Save the model state between steps
                 if (step + 1- fixed_pass_count) % run_step_config['nsave_steps'] == 0:
-                    model.save_model(os.path.join(run_step_config['checkpoint_dir'], f"model_checkpoint"))
-                    torch.save(optimizer.state_dict(), os.path.join(run_step_config['checkpoint_dir'], f"optimizer_checkpoint.pth"))
-                    torch.save(scheduler.state_dict(), os.path.join(run_step_config['checkpoint_dir'], f"scheduler_checkpoint.pth"))
-                    torch.save({'step': step}, os.path.join(run_step_config['checkpoint_dir'], "step_checkpoint.pth"))
-                    
-
+                    save_checkpoint(model, optimizer, scheduler, step, losses, run_step_config)
+                
                 # Break if step reaches the maximun
                 if (step+1) >= run_step_config['max_steps']:
                     not_reached_max_steps = False
                     break
                 
-                # 清理内存
+                # memory cleaning
                 # if step % 100 == 0:
                 #     gc.collect()
                 #     torch.cuda.empty_cache()
@@ -201,31 +196,17 @@ def learner(model, loss_fn, run_step_config):
             if not_reached_max_steps == False:
                 break
 
-            # epoch_training_losses.append(epoch_training_loss)
-            # root_logger.info("Current mean of epoch training losses")
-            # root_logger.info(torch.mean(torch.stack(epoch_training_losses)))
-            model.save_model(os.path.join(run_step_config['checkpoint_dir'], "epoch_model_checkpoint"))
-            torch.save(optimizer.state_dict(), os.path.join(run_step_config['checkpoint_dir'], "epoch_optimizer_checkpoint" + ".pth"))
-            torch.save(scheduler.state_dict(), os.path.join(run_step_config['checkpoint_dir'], "epoch_scheduler_checkpoint" + ".pth"))
+            # Save the model state between epochs
+            save_checkpoint(model, optimizer, scheduler, step, losses, run_step_config)
+            
             if epoch == 13:
                 scheduler.step()
                 root_logger.info("Call scheduler in epoch " + str(epoch))
-            # torch.save({'epoch': epoch}, os.path.join(run_step_config['checkpoint_dir'], "epoch_checkpoint.pth"))
-            torch.save({'step': step}, os.path.join(run_step_config['checkpoint_dir'], "step_checkpoint.pth"))
 
-    model.save_model(os.path.join(run_step_config['checkpoint_dir'], "model_checkpoint"))
-    torch.save(optimizer.state_dict(), os.path.join(run_step_config['checkpoint_dir'], "optimizer_checkpoint.pth"))
-    torch.save(scheduler.state_dict(), os.path.join(run_step_config['checkpoint_dir'], "scheduler_checkpoint.pth"))
-    loss_record = {}
-    loss_record["avglosses_per_100_steps"] = losses[:]
-    '''
-    loss_record['train_total_loss'] = torch.sum(torch.stack(epoch_training_losses))
-    loss_record['train_mean_epoch_loss'] = torch.mean(torch.stack(epoch_training_losses)).item()
-    loss_record['train_max_epoch_loss'] = torch.max(torch.stack(epoch_training_losses)).item()
-    loss_record['train_min_epoch_loss'] = torch.min(torch.stack(epoch_training_losses)).item()
-    loss_record['train_epoch_losses'] = epoch_training_losses
-    '''
-    return loss_record
+    # Save the model state in the end
+    save_checkpoint(model, optimizer, scheduler, step, losses, run_step_config)
+
+
 
 
 def main(argv):
@@ -314,45 +295,20 @@ def main(argv):
     log_run_summary(root_logger, run_step_config, run_step_dir)
     
     # training part
-    train_loss_record = None
-    
+
     train_start = time.time()
-    train_loss_record = learner(model, loss_fn, run_step_config)# <--- Training progress 
+    learner(model, loss_fn, run_step_config)# <--- Training progress 
     train_end = time.time()
     train_elapsed_time_in_second = train_end - train_start
 
     # load train loss if exist and combine the previous and current train loss
     if last_run_dir is not None:
-        # 将本次中途开始的训练的loss和之前的未完成的训练的loss进行整合，得到完整训练的loss
-        saved_train_loss_record = pickle_load(os.path.join(last_run_step_dir, 'log', 'train_loss.pkl'))
-        train_loss_record["avglosses_per_100_steps"] = saved_train_loss_record["avglosses_per_100_steps"] + train_loss_record["avglosses_per_100_steps"]
-        show_loss_graph(train_loss_record["avglosses_per_100_steps"],log_dir)
-        '''
-        将本次中途开始的训练的loss和之前的未完成的训练的loss进行整合，得到完整训练的loss
-        saved_train_loss_record = pickle_load(os.path.join(last_run_step_dir, 'log', 'train_loss.pkl'))
-        train_loss_record['train_epoch_losses'] = saved_train_loss_record['train_epoch_losses'] + \
-                                                      train_loss_record['train_epoch_losses']
-        train_loss_record['train_total_loss'] = torch.sum(torch.stack(train_loss_record['train_epoch_losses']))
-        train_loss_record['train_mean_epoch_loss'] = torch.mean(
-                torch.stack(train_loss_record['train_epoch_losses'])).item()
-        train_loss_record['train_max_epoch_loss'] = torch.max(
-                torch.stack(train_loss_record['train_epoch_losses'])).item()
-        train_loss_record['train_min_epoch_loss'] = torch.min(
-                torch.stack(train_loss_record['train_epoch_losses'])).item()
-        train_loss_record['all_trajectory_train_losses'] = saved_train_loss_record['all_trajectory_train_losses'] + \
-                                                               train_loss_record['all_trajectory_train_losses']
-        load train elapsed time if exist and combine the previous and current train loss
-        '''
         saved_train_elapsed_time_in_second = pickle_load(os.path.join(last_run_step_dir, 'log', 'train_elapsed_time_in_second.pkl'))
         train_elapsed_time_in_second += saved_train_elapsed_time_in_second
+
     train_elapsed_time_in_second_pkl_file = os.path.join(log_dir, 'train_elapsed_time_in_second.pkl')
     Path(train_elapsed_time_in_second_pkl_file).touch()
     pickle_save(train_elapsed_time_in_second_pkl_file, train_elapsed_time_in_second)
-
-    # save train loss
-    train_loss_pkl_file = os.path.join(log_dir, 'train_loss.pkl')
-    Path(train_loss_pkl_file).touch()
-    pickle_save(train_loss_pkl_file, train_loss_record)
 
     root_logger.info("Finished training......")
     
