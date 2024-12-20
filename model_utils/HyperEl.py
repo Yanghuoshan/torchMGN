@@ -229,6 +229,13 @@ class Model(nn.Module):
         self.eval()
         self.learned_model.eval()
 
+    def to(self, device):
+        super().to(device)
+        self._output_normalizer.to(device)
+        self._mesh_edge_normalizer.to(device)
+        self._world_edge_normalizer.to(device)
+        self.learned_model.to(device)
+
 
 def loss_fn(inputs, network_output, model):
     """L2 loss on position."""

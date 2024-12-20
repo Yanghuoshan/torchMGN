@@ -140,6 +140,13 @@ class Model(nn.Module):
         self.eval()
         self.learned_model.eval()
 
+    def to(self, device):
+        super().to(device)
+        self._output_normalizer.to(device)
+        self._mesh_edge_normalizer.to(device)
+        self._node_normalizer.to(device)
+        self.learned_model.to(device)
+
 
 def loss_fn(inputs, network_output, model):
     world_pos = inputs['world_pos']
@@ -166,4 +173,5 @@ def loss_fn_alter(target, network_output, node_type, model):
     error = torch.sum((target_normalized - network_output) ** 2, dim=1)
     loss = torch.mean(error[loss_mask])
     return loss
+
 
