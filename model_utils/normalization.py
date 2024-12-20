@@ -26,16 +26,16 @@ import torch.nn as nn
 class Normalizer(nn.Module):
     """Feature normalizer that accumulates statistics online."""
 
-    def __init__(self, size, name, max_accumulations=10 ** 6, std_epsilon=1e-8, device='cuda'):
+    def __init__(self, size, name, max_accumulations=10 ** 6, std_epsilon=1e-8):
         super(Normalizer, self).__init__()
         self._name = name
         self._max_accumulations = max_accumulations
-        self._std_epsilon = torch.tensor([std_epsilon], requires_grad=False, device=device)
-        self._acc_count = torch.zeros(1, dtype=torch.float32, requires_grad=False, device=device)
-        self._num_accumulations = torch.zeros(1, dtype=torch.float32, requires_grad=False, device=device)
-        self._acc_sum = torch.zeros(size, dtype=torch.float32, requires_grad=False, device=device)
-        self._acc_sum_squared = torch.zeros(size, dtype=torch.float32, requires_grad=False, device=device)
-        self._one = torch.tensor([1.]).to(device)
+        self._std_epsilon = torch.tensor([std_epsilon], requires_grad=False)
+        self._acc_count = torch.zeros(1, dtype=torch.float32, requires_grad=False)
+        self._num_accumulations = torch.zeros(1, dtype=torch.float32, requires_grad=False)
+        self._acc_sum = torch.zeros(size, dtype=torch.float32, requires_grad=False)
+        self._acc_sum_squared = torch.zeros(size, dtype=torch.float32, requires_grad=False)
+        self._one = torch.tensor([1.])
 
     def forward(self, batched_data, accumulate=True):
         """Normalizes input data and accumulates statistics."""
@@ -71,3 +71,13 @@ class Normalizer(nn.Module):
 
     def get_acc_sum(self):
         return self._acc_sum
+    
+    def to(self, device):
+        super().to(device)
+        self._std_epsilon = self._std_epsilon.to(device)
+        self._acc_count = self._acc_count.to(device)
+        self._num_accumulations = self._num_accumulations.to(device)
+        self._acc_sum = self._acc_sum.to(device)
+        self._acc_sum_squared = self._acc_sum_squared.to(device)
+        self._one = self._one.to(device)
+        return self

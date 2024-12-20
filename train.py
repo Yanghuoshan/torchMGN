@@ -287,7 +287,7 @@ def main(argv):
                                                  run_step_config['message_passing_aggregator'],
                                                  run_step_config['message_passing_steps'],
                                                 #  run_step_config['is_use_world_edge'],
-                                                 device = device)
+                                                )
     if FLAGS.is_data_graph:
         loss_fn = eval(run_step_config['model']).loss_fn_alter
     else:
@@ -299,6 +299,7 @@ def main(argv):
         root_logger.info(
             "Loaded checkpoint file in " + str(
                 os.path.join(last_run_step_dir, 'checkpoint')) + " and starting retraining...")
+        
     model.to(device)
 
     # run summary

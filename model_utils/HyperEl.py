@@ -17,12 +17,12 @@ class Model(nn.Module):
 
     def __init__(self, output_size, message_passing_aggregator='sum', message_passing_steps=15, is_use_world_edge=True, device='cuda'):
         super(Model, self).__init__()
-        self._output_normalizer = normalization.Normalizer(size=output_size, name='output_normalizer' ,device=device)
+        self._output_normalizer = normalization.Normalizer(size=output_size, name='output_normalizer')
         # self._stress_output_normalizer = normalization.Normalizer(size=3, name='stress_output_normalizer')# NOT USED ACTUALLY
         # self._node_normalizer = normalization.Normalizer(size=9, name='node_normalizer')# NOT USED ACTUALLY
         # self._node_dynamic_normalizer = normalization.Normalizer(size=1, name='node_dynamic_normalizer')# NOT USED ACTUALLY
-        self._mesh_edge_normalizer = normalization.Normalizer(size=8, name='mesh_edge_normalizer' ,device=device)
-        self._world_edge_normalizer = normalization.Normalizer(size=4, name='world_edge_normalizer' ,device=device) 
+        self._mesh_edge_normalizer = normalization.Normalizer(size=8, name='mesh_edge_normalizer')
+        self._world_edge_normalizer = normalization.Normalizer(size=4, name='world_edge_normalizer') 
         self._displacement_base = None
 
         self.core_model = encode_process_decode
