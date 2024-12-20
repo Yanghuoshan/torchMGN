@@ -92,8 +92,11 @@ def learner(model, loss_fn, run_step_config):
     running_loss = 0.0
     loss_count = 0
     losses = []
-
+    
     is_dry_run = True
+    if run_step_config['last_run_dir'] is not None:
+        is_dry_run = False
+        root_logger.info("No Dry run")
 
     while not_reached_max_steps:
         for epoch in range(run_step_config['epochs'])[trained_epoch:]:
@@ -128,7 +131,7 @@ def learner(model, loss_fn, run_step_config):
                 model.apply(init_weights)
                     
                 is_dry_run = False
-            root_logger.info("Dry run finished")
+                root_logger.info("Dry run finished")
             
             # start to train
             for input in ds_iterator:

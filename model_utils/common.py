@@ -182,8 +182,7 @@ def build_graph_HyperEl(inputs, rectangle=True):
     node_features = one_hot_node_type
 
         
-    return (MultiGraph(node_features=node_features,
-                                              edge_sets=[mesh_edges, world_edges]))
+    return (MultiGraph(node_features=node_features, edge_sets=[mesh_edges, world_edges]))
 
 
 def build_graph_Cloth(inputs, rectangle=False):
