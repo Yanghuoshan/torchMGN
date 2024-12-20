@@ -85,6 +85,7 @@ def learner(model, loss_fn, run_step_config):
     pass_count = 500
     if run_step_config['last_run_dir'] is not None:
         pass_count = 0
+        fixed_pass_count = 0
 
     not_reached_max_steps = True
     step = 0
