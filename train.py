@@ -63,6 +63,7 @@ device = None
 
 
 def save_checkpoint(model, optimizer, scheduler, step, losses, run_step_config):
+    # save checkpoint to prevent interruption
     model.save_model(os.path.join(run_step_config['checkpoint_dir'], f"model_checkpoint"))
     torch.save(optimizer.state_dict(), os.path.join(run_step_config['checkpoint_dir'], f"optimizer_checkpoint.pth"))
     torch.save(scheduler.state_dict(), os.path.join(run_step_config['checkpoint_dir'], f"scheduler_checkpoint.pth"))
@@ -87,10 +88,8 @@ def learner(model, loss_fn, run_step_config):
     if run_step_config['last_run_dir'] is not None:
         optimizer.load_state_dict(torch.load(os.path.join(run_step_config['last_run_step_dir'], 'checkpoint', "optimizer_checkpoint.pth")))
         scheduler.load_state_dict(torch.load(os.path.join(run_step_config['last_run_step_dir'], 'checkpoint', "scheduler_checkpoint.pth")))
-
         trained_step = torch.load(os.path.join(run_step_config['last_run_step_dir'], 'checkpoint', "step_checkpoint.pth"))['trained_step'] + 1
         losses = torch.load(os.path.join(run_step_config['last_run_step_dir'], 'checkpoint', "losses_checkpoint.pth"))['losses'][:]
-
         root_logger.info("Loaded optimizer, scheduler and model epoch checkpoint\n")
 
     # pre run for normalizer
@@ -299,13 +298,9 @@ def main(argv):
     train_start = time.time()
     learner(model, loss_fn, run_step_config)# <--- Training progress 
     train_end = time.time()
+    
+    # save the running time
     train_elapsed_time_in_second = train_end - train_start
-
-    # load train loss if exist and combine the previous and current train loss
-    if last_run_dir is not None:
-        saved_train_elapsed_time_in_second = pickle_load(os.path.join(last_run_step_dir, 'log', 'train_elapsed_time_in_second.pkl'))
-        train_elapsed_time_in_second += saved_train_elapsed_time_in_second
-
     train_elapsed_time_in_second_pkl_file = os.path.join(log_dir, 'train_elapsed_time_in_second.pkl')
     Path(train_elapsed_time_in_second_pkl_file).touch()
     pickle_save(train_elapsed_time_in_second_pkl_file, train_elapsed_time_in_second)
