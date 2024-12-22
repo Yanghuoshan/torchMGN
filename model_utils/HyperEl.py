@@ -318,3 +318,9 @@ def loss_fn_alter(target, network_output, node_type, model):
     loss = torch.mean(error[loss_mask])
 
     return loss
+
+def rollout():
+    pass
+
+def evaluate():
+    pass

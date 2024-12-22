@@ -107,7 +107,10 @@ class Model(nn.Module):
             return self.learned_model(new_graph)
 
     def _update(self, inputs, per_node_network_output):
-        """Integrate model outputs."""
+        """
+        Integrate model outputs.
+        Ouput next position 
+        """
 
         acceleration = self._output_normalizer.inverse(per_node_network_output)
 
@@ -166,6 +169,7 @@ def loss_fn(inputs, network_output, model):
     loss = torch.mean(error[loss_mask])
     return loss
 
+
 def loss_fn_alter(target, network_output, node_type, model):
     target_normalizer = model.get_output_normalizer()
     target_normalized = target_normalizer(target)
@@ -173,5 +177,52 @@ def loss_fn_alter(target, network_output, node_type, model):
     error = torch.sum((target_normalized - network_output) ** 2, dim=1)
     loss = torch.mean(error[loss_mask])
     return loss
+
+
+def rollout(model, initial_state, num_steps):
+    """Rolls out a model trajectory."""
+    node_type = initial_state['node_type']
+    mask = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.NORMAL.value], device=node_type.device))
+    mask = torch.stack((mask, mask, mask), dim=1)
+
+    def step_fn(prev_pos, cur_pos, trajectory):
+
+        with torch.no_grad():
+            prediction = model({**initial_state, # cells, node_type, mesh_pos
+                                'prev_world_pos': prev_pos,
+                                'world_pos': cur_pos}, is_training=False)
+
+        next_pos = torch.where(mask, torch.squeeze(prediction), torch.squeeze(cur_pos))
+
+        trajectory.append(cur_pos)
+        return cur_pos, next_pos, trajectory
+
+    prev_pos = torch.squeeze(initial_state['prev_world_pos'], 0)
+    cur_pos = torch.squeeze(initial_state['world_pos'], 0)
+    trajectory = []
+    for step in range(num_steps):
+        prev_pos, cur_pos, trajectory = step_fn(prev_pos, cur_pos, trajectory)
+    return torch.stack(trajectory)
+
+
+def evaluate(model, trajectory, num_steps=None):
+    """Performs model rollouts and create stats."""
+    initial_state = {k: torch.squeeze(v, 0)[0] for k, v in trajectory.items()}
+    if num_steps is None:
+        num_steps = trajectory['cells'].shape[0]
+    prediction = rollout(model, initial_state, num_steps)
+
+    # error = tf.reduce_mean((prediction - trajectory['world_pos'])**2, axis=-1)
+    # scalars = {'mse_%d_steps' % horizon: tf.reduce_mean(error[1:horizon+1])
+    #            for horizon in [1, 10, 20, 50, 100, 200]}
+
+    scalars = None
+    traj_ops = {
+        'faces': trajectory['cells'],
+        'mesh_pos': trajectory['mesh_pos'],
+        'gt_pos': trajectory['world_pos'],
+        'pred_pos': prediction
+    }
+    return scalars, traj_ops
 
 

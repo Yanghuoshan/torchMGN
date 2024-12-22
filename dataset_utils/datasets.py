@@ -18,7 +18,7 @@ from tqdm import trange
 
 from model_utils.common import build_graph_HyperEl, build_graph_Cloth
 
-class HyperEl_datasets(torch.utils.data.Dataset):
+class HyperEl_single_dataset(torch.utils.data.Dataset):
     def __init__(self, path, is_data_graph = False):
         self.path = path
         self.meta = json.loads(open(os.path.join(path, 'metadata.json')).read())
@@ -87,7 +87,7 @@ class HyperEl_datasets(torch.utils.data.Dataset):
         return [graph, target, d['node_type']]
     
 
-class IncompNS_datasets(torch.utils.data.Dataset):
+class IncompNS_single_dataset(torch.utils.data.Dataset):
     def __init__(self, path):
         self.path = path
         self.meta = json.loads(open(os.path.join(path, 'metadata.json')).read())
@@ -127,7 +127,8 @@ class IncompNS_datasets(torch.utils.data.Dataset):
             pressure=torch.Tensor(data['pressure'][sid, ...])
         )
 
-class Cloth_datasets(torch.utils.data.Dataset):
+
+class Cloth_single_dataset(torch.utils.data.Dataset):
     def __init__(self, path, is_data_graph = False):
         self.path = path
         self.meta = json.loads(open(os.path.join(path, 'metadata.json')).read())
@@ -197,6 +198,58 @@ class Cloth_datasets(torch.utils.data.Dataset):
         return [graph, target, d['node_type']]
     
         
+class Cloth_trajectory_dataset(torch.utils.data.Dataset):
+    def __init__(self, path, is_data_graph = False, trajectory_index = 0):
+        self.path = path
+        self.meta = json.loads(open(os.path.join(path, 'metadata.json')).read())
+        self.files = self.meta['files']
+        self.trajectory_index = trajectory_index
+        self.fname = list(self.files.keys())[trajectory_index]
+        self.num_samples = self.files[self.fname] - 2
+        if is_data_graph:
+            self.return_item = self.return_graph
+        else:
+            self.return_item = self.return_dict
+
+    def __len__(self): return self.num_samples
+
+    def __getitem__(self, idx : int) -> dict:
+        data = np.load(os.path.join(self.path, self.fname))
+        return self.return_item(data, idx)
+    
+    def return_dict(self, data, sid):
+        return dict(
+            cells=torch.LongTensor(data['cells'][sid, ...]),
+            node_type=torch.LongTensor(data['node_type'][sid, ...]),
+            mesh_pos=torch.Tensor(data['mesh_pos'][sid, ...]),
+            world_pos=torch.Tensor(data['world_pos'][sid + 1, ...]),
+            prev_world_pos=torch.Tensor(data['world_pos'][sid, ...]),
+            target_world_pos=torch.Tensor(data['world_pos'][sid + 2, ...])
+        )
+
+    def return_graph(self, data, sid):
+        d = dict(
+            cells=torch.LongTensor(data['cells'][sid, ...]),
+            node_type=torch.LongTensor(data['node_type'][sid, ...]),
+            mesh_pos=torch.Tensor(data['mesh_pos'][sid, ...]),
+            world_pos=torch.Tensor(data['world_pos'][sid + 1, ...]),
+            prev_world_pos=torch.Tensor(data['world_pos'][sid, ...]),
+            target_world_pos=torch.Tensor(data['world_pos'][sid + 2, ...])
+        )
+        graph = build_graph_Cloth(d)
+
+        world_pos = d['world_pos']
+        prev_world_pos = d['prev_world_pos']
+        target_world_pos = d['target_world_pos']
+
+        cur_position = world_pos
+        prev_position = prev_world_pos
+        target_position = target_world_pos
+        target = target_position - 2 * cur_position + prev_position
+
+        return [graph, target, d['node_type']]
+
+
 def my_collate_fn(batch): # cumstom collate fn
         # batch [data1, data2...]
         return batch
@@ -213,11 +266,11 @@ def get_dataloader(path,
 
     path = os.path.join(path,split)
     if model == "Cloth":
-        Datasets = Cloth_datasets
+        Datasets = Cloth_single_dataset
     elif model== "IncompNS":
-        Datasets = IncompNS_datasets
+        Datasets = IncompNS_single_dataset
     elif model == "HyperEl":
-        Datasets = HyperEl_datasets
+        Datasets = HyperEl_single_dataset
     else:
         raise ValueError("The dataset type doesn't exist.")
     
@@ -226,6 +279,24 @@ def get_dataloader(path,
         return torch.utils.data.DataLoader(ds, batch_size=1, shuffle = shuffle, collate_fn=my_collate_fn)
     return torch.utils.data.DataLoader(ds, batch_size=1, shuffle = shuffle, prefetch_factor=prefetch, num_workers=4, pin_memory=True, collate_fn=my_collate_fn)
 
+
+def get_trajectory_dataloader(path,
+                              model = "Cloth",
+                              split = "roll",
+                              trajectory_index = 0,
+                              shuffle = False,
+                              prefetch = 0,
+                              is_data_graph = False):
+    path = os.path.join(path, split)
+    if model == "Cloth":
+        Datasets = Cloth_trajectory_dataset
+    else:
+        raise ValueError("The dataset type doesn't exist.")
+    
+    ds = Datasets(path, is_data_graph, trajectory_index)
+    if prefetch == 0:
+        return torch.utils.data.DataLoader(ds, batch_size=1, shuffle = shuffle, collate_fn=my_collate_fn)
+    return torch.utils.data.DataLoader(ds, batch_size=1, shuffle = shuffle, prefetch_factor=prefetch, num_workers=4, pin_memory=True, collate_fn=my_collate_fn)
 
 
 if __name__ == "__main__":
