@@ -189,7 +189,7 @@ def rollout(model, initial_state, num_steps):
     mask = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.NORMAL.value], device=node_type.device))
     mask = torch.stack((mask, mask, mask), dim=1)
 
-    def step_fn(prev_pos, cur_pos, trajectory):
+    def step_fn(prev_pos, cur_pos, trajectory, cells):
 
         with torch.no_grad():
             prediction = model({**initial_state, # cells, node_type, mesh_pos
@@ -199,14 +199,20 @@ def rollout(model, initial_state, num_steps):
         next_pos = torch.where(mask, prediction, cur_pos)
 
         trajectory.append(cur_pos)
-        return cur_pos, next_pos, trajectory
+        cells.append(initial_state['cells'])
+        return cur_pos, next_pos, trajectory, cells
 
     prev_pos = initial_state['prev_world_pos']
     cur_pos = initial_state['world_pos']
     trajectory = []
+    cells = []
     for step in range(num_steps):
-        prev_pos, cur_pos, trajectory = step_fn(prev_pos, cur_pos, trajectory)
-    return torch.stack(trajectory)
+        prev_pos, cur_pos, trajectory, cells = step_fn(prev_pos, cur_pos, trajectory, cells)
+
+    return dict(
+        world_pos = torch.stack(trajectory),
+        cells = torch.stack(cells)
+        )
 
 
 def evaluate(model, trajectory, num_steps=None):

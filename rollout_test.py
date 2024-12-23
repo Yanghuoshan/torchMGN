@@ -10,6 +10,7 @@ from model_utils import HyperEl,Cloth
 from model_utils import deform_eval
 from model_utils import common
 from model_utils.encode_process_decode import init_weights
+from render_utils import Cloth_render
 import logging
 import numpy as np
 import json
@@ -19,12 +20,13 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 import torch.distributed as dist
 
 import matplotlib
-matplotlib.use('AGG')
 import matplotlib.pyplot as plt
 
 from dataset_utils import datasets
 
 device = torch.device('cuda')
+
+os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 
 # PARAMETERS = {
 #     'deform': dict(noise=0.003, gamma=1.0, field='world_pos', history=False,
@@ -33,9 +35,15 @@ device = torch.device('cuda')
 # }
 # params = PARAMETERS['deform']
 # model = HyperEl.Model(4, message_passing_steps=7).to(device)
+last_run_step_dir = ''
+
 M = Cloth
 model = M.Model(3, message_passing_steps=7).to(device)
+# model.load_model(os.path.join(last_run_step_dir, 'checkpoint', "model_checkpoint"))
+
 rollout = M.rollout
+render = Cloth_render.render
+
 is_data_graph = False
 
 # dl = datasets.get_dataloader("D:\project_summary\Graduation Project\\tmp\datasets_np\\flag_simple",model="Cloth",is_data_graph=is_data_graph)
@@ -71,11 +79,14 @@ if is_data_graph:
 
     print(out)
 else:
-    dl = datasets.get_trajectory_dataloader("D:\project_summary\Graduation Project\\tmp\datasets_np\\flag_simple",model="Cloth",is_data_graph=is_data_graph, trajectory_index=0)
+    dl = datasets.get_trajectory_dataloader("D:\project_summary\Graduation Project\\tmp\datasets_np\\flag_simple",
+                                            model="Cloth",
+                                            is_data_graph=is_data_graph, 
+                                            trajectory_index=3)
     trajectory = iter(dl)
     init_state = next(trajectory)[0]
     for k in init_state:
         init_state[k] = init_state[k].to(device)
-    new_trajectory =rollout(model,init_state,10)
-    print(new_trajectory.shape)
+    new_trajectory =rollout(model,init_state,200)
+    render(new_trajectory)
 
