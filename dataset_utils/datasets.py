@@ -282,7 +282,7 @@ def get_dataloader(path,
 
 def get_trajectory_dataloader(path,
                               model = "Cloth",
-                              split = "roll",
+                              split = "test",
                               trajectory_index = 0,
                               shuffle = False,
                               prefetch = 0,

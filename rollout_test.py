@@ -35,10 +35,11 @@ device = torch.device('cuda')
 # model = HyperEl.Model(4, message_passing_steps=7).to(device)
 M = Cloth
 model = M.Model(3, message_passing_steps=7).to(device)
+rollout = M.rollout
 is_data_graph = False
 
-dl = datasets.get_dataloader("D:\project_summary\Graduation Project\\tmp\datasets_np\\flag_simple",model="Cloth",is_data_graph=is_data_graph)
-dl = iter(dl)
+# dl = datasets.get_dataloader("D:\project_summary\Graduation Project\\tmp\datasets_np\\flag_simple",model="Cloth",is_data_graph=is_data_graph)
+# dl = iter(dl)
 if is_data_graph:
     loss_fn = M.loss_fn_alter
     input = next(dl)
@@ -70,23 +71,11 @@ if is_data_graph:
 
     print(out)
 else:
-    loss_fn = M.loss_fn
-    input = next(dl)[0]
-    for k in input:
-        input[k]=input[k].to(device)
-
-    out = model(input,is_training=True)
-    model.apply(init_weights)
-    loss = loss_fn(input,out,model)
-    loss.backward()
-    # print(loss)
-    # input = next(dl)[0]
-    # for k in input:
-    #     input[k]=input[k].to(device)
-    # out = model(input,is_training=True)
-
-    # for name, param in model.named_parameters():
-    #     if param.grad is not None:
-    #         print(f"{name} grad: {param.grad}")
-    print(model)
+    dl = datasets.get_trajectory_dataloader("D:\project_summary\Graduation Project\\tmp\datasets_np\\flag_simple",model="Cloth",is_data_graph=is_data_graph, trajectory_index=0)
+    trajectory = iter(dl)
+    init_state = next(trajectory)[0]
+    for k in init_state:
+        init_state[k] = init_state[k].to(device)
+    new_trajectory =rollout(model,init_state,10)
+    print(new_trajectory.shape)
 

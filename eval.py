@@ -62,14 +62,11 @@ device = None
 
 
 def evaluator(model, run_step_config):
+    M = run_step_config['model']
+
     root_logger = logging.getLogger()
-    model = run_step_config['model']
     """Run a model rollout trajectory."""
-    ds_loader = datasets.get_trajectory_dataloader(run_step_config['dataset_dir'],
-                                                   model=run_step_config['model'],
-                                                   split='roll',
-                                                   shuffle=False)
-    ds_iterator = iter(ds_loader)
+
     trajectories = []
     mse_losses = []
     l1_losses = []
@@ -77,12 +74,13 @@ def evaluator(model, run_step_config):
     for index in range(run_step_config['num_rollouts']):
         root_logger.info("Evaluating trajectory " + str(index + 1))
         ds_loader = datasets.get_trajectory_dataloader(run_step_config['dataset_dir'],
-                                                   model=run_step_config['model'],
-                                                   split='roll',
-                                                   shuffle=False)
+                                                       model=run_step_config['model'],
+                                                       split='roll',
+                                                       shuffle=False,
+                                                       trajectory_index=index)
         trajectory = iter(ds_loader)
         
-        _, prediction_trajectory = params['evaluator'].evaluate(model, trajectory)
+        _, prediction_trajectory = eval(M).evaluate(model, trajectory)
         mse_loss_fn = torch.nn.MSELoss()
         l1_loss_fn = torch.nn.L1Loss()
         if model == 'cloth':
