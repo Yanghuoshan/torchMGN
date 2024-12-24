@@ -58,7 +58,8 @@ flags.DEFINE_integer('message_passing_steps', 5, 'No. of training epochs')
 flags.DEFINE_string('model_last_run_dir', None, 'Path to the checkpoint file of a network that should continue training')
 # decide whether to use the configuration from last run step. If not use the previous
 flags.DEFINE_boolean('use_prev_config', True, 'Decide whether to use the configuration from last run step')
-
+# decide whether continue the last trained steps or start new steps
+flags.DEFINE_bool('start_new_trained_step', True, 'Decide whether continue the last trained steps or start new steps')
 device = None
 
 
@@ -98,10 +99,10 @@ def learner(model, loss_fn, run_step_config):
     if run_step_config['last_run_dir'] is not None:
         pass_count = 0
 
-    # run the left steps
+    # run the left steps or not
     not_reached_max_steps = True
     step = 0
-    if run_step_config['last_run_dir'] is not None:
+    if run_step_config['last_run_dir'] is not None and not FLAGS.start_new_trained_step:
         step = trained_step
     
     # dry run for lazy linear layers initialization

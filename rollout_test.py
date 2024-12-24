@@ -82,11 +82,23 @@ else:
     dl = datasets.get_trajectory_dataloader("D:\project_summary\Graduation Project\\tmp\datasets_np\\flag_simple",
                                             model="Cloth",
                                             is_data_graph=is_data_graph, 
-                                            trajectory_index=3)
+                                            trajectory_index=0)
     trajectory = iter(dl)
-    init_state = next(trajectory)[0]
-    for k in init_state:
-        init_state[k] = init_state[k].to(device)
-    new_trajectory =rollout(model,init_state,200)
-    render(new_trajectory)
+    origin_trajectory = None
+    world_pos = []
+    cells = []
+    for _ in range(2):
+        init_state = next(trajectory)[0]
+        world_pos.append(init_state['world_pos'])
+        cells.append(init_state['cells'])
+
+    
+    # for k in init_state:
+    #     init_state[k] = init_state[k].to(device)
+    trajectory = dict(
+        world_pos = torch.stack(world_pos),
+        cells = torch.stack(cells)
+        )
+    # new_trajectory =rollout(model,init_state,20)
+    render(trajectory)
 
