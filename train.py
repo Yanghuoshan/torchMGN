@@ -82,6 +82,7 @@ def learner(model, loss_fn, run_step_config):
 
     losses = []
     loss_save_interval = 1000
+    loss_save_cnt = 0
     running_loss = 0.0
     trained_epoch = 0
     trained_step = 0
@@ -170,10 +171,12 @@ def learner(model, loss_fn, run_step_config):
                     optimizer.step()
 
                     running_loss += loss.cpu().item()
+                    loss_save_cnt += 1
                     if (step + 1 - fixed_pass_count) % loss_save_interval == 0:
-                        avg_loss = running_loss / loss_save_interval
+                        avg_loss = running_loss / loss_save_cnt
                         losses.append(avg_loss)
                         running_loss = 0.0
+                        loss_save_cnt = 0
                         root_logger.info(f"Step [{step+1}], Loss: {avg_loss:.4f}")
 
                 # Save the model state between steps
