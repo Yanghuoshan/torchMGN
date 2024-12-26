@@ -37,8 +37,8 @@ flags.DEFINE_string('output_dir','D:\\project_summary\\Graduation Project\\torch
 
 flags.DEFINE_string('datasets_dir','D:\\project_summary\\Graduation Project\\tmp\\datasets_np','path to datasets')
 flags.DEFINE_enum('dataset', 'flag_simple', ['deforming_plate','flag_simple'], 'Select dataset to run')
-flags.DEFINE_boolean('is_data_graph',False,'is dataloader output graph')
-flags.DEFINE_integer('prefetch',1,'prefetch size')
+flags.DEFINE_boolean('is_data_graph', False, 'is dataloader output graph')
+flags.DEFINE_integer('prefetch', 1, 'prefetch size')
 
 flags.DEFINE_float('lr_init',1e-4,'Initial learning rate')
 flags.DEFINE_integer('epochs', 2, 'Num of training epochs')
@@ -115,12 +115,20 @@ def learner(model, loss_fn, run_step_config):
     while not_reached_max_steps:
         for epoch in range(run_step_config['epochs'])[trained_epoch:]:
             # model will train itself with the whole dataset
-            ds_loader = datasets.get_dataloader(run_step_config['dataset_dir'],
-                                                model=run_step_config['model'],
-                                                split='train',
-                                                shuffle=True,
-                                                prefetch=FLAGS.prefetch, 
-                                                is_data_graph=FLAGS.is_data_graph)
+            if run_step_config['use_hdf5']:
+                ds_loader = datasets.get_dataloader_hdf5(run_step_config['dataset_dir'],
+                                                    model=run_step_config['model'],
+                                                    split='train',
+                                                    shuffle=True,
+                                                    prefetch=FLAGS.prefetch, 
+                                                    is_data_graph=FLAGS.is_data_graph)
+            else:
+                ds_loader = datasets.get_dataloader(run_step_config['dataset_dir'],
+                                                    model=run_step_config['model'],
+                                                    split='train',
+                                                    shuffle=True,
+                                                    prefetch=FLAGS.prefetch, 
+                                                    is_data_graph=FLAGS.is_data_graph)
             root_logger.info("Epoch " + str(epoch + 1) + "/" + str(run_step_config['epochs']))
             ds_iterator = iter(ds_loader)
 
@@ -238,6 +246,11 @@ def main(argv):
                     #    'is_use_world_edge':FLAGS.is_use_world_edge,
                        'dataset_dir': os.path.join(FLAGS.datasets_dir, FLAGS.dataset),
                        'last_run_dir': None}    
+    if FLAGS.datasets_dir[-4:]=='hdf5':
+        run_step_config['use_hdf5'] = True
+    else:
+        run_step_config['use_hdf5'] = False
+
     if last_run_dir is not None and use_prev_config:
         last_run_step_dir = find_nth_latest_run_step(last_run_dir, 1)
         run_step_config = pickle_load(os.path.join(last_run_step_dir, 'log', 'config.pkl'))
