@@ -459,16 +459,39 @@ def get_dataloader_hdf5(path,
     return torch.utils.data.DataLoader(ds, batch_size=1, shuffle = shuffle, prefetch_factor=prefetch, num_workers=8, pin_memory=True, collate_fn=my_collate_fn)
 
 
+def get_dataloader_hdf5_batch(path, 
+                   model = "Cloth",
+                   split = "train",
+                   shuffle = True,
+                   prefetch = 0,
+                   batch_size = 2,
+                   is_data_graph = False):
+    path = os.path.join(path,split)
+    if model == "Cloth":
+        Datasets = Cloth_single_dataset_hdf5
+    else:
+        raise ValueError("The dataset type doesn't exist.")
+    
+    if is_data_graph:
+        collate_fn = graph_collate_fn
+    else:
+        collate_fn = dict_collate_fn
+    ds = Datasets(path, is_data_graph)
+    if prefetch == 0:
+        return torch.utils.data.DataLoader(ds, batch_size=batch_size, shuffle = shuffle, collate_fn=collate_fn)
+    return torch.utils.data.DataLoader(ds, batch_size=batch_size, shuffle = shuffle, prefetch_factor=prefetch, num_workers=8, pin_memory=True, collate_fn=collate_fn)
+
+
 if __name__ == "__main__":
     # ds = deforming_datasets("D:\project_summary\Graduation Project\\tmp\datasets_np\deforming_plate\\train")
     # ds = cloth_datasets("D:\project_summary\Graduation Project\\tmp\datasets_np\\flag_simple\\train")
     # ds = flow_datasets("D:\project_summary\Graduation Project\\tmp\datasets_np\\cylinder_flow\\train")
     prefetch = 0
-    is_graph = True
+    is_graph = False
     use_h5 = True
     print(f'prefetch: {prefetch}, is_graph: {is_graph}, is_useh5: {use_h5}')
     if use_h5:
-        dl = get_dataloader_hdf5("D:\project_summary\Graduation Project\\tmp\datasets_hdf5\\flag_simple",model="Cloth",split="train",prefetch=prefetch,is_data_graph=is_graph)
+        dl = get_dataloader_hdf5_batch("D:\project_summary\Graduation Project\\tmp\datasets_hdf5\\flag_simple",model="Cloth",split="train",prefetch=prefetch,is_data_graph=is_graph)
     else:
         dl = get_dataloader("D:\project_summary\Graduation Project\\tmp\datasets_np\\flag_simple",model="Cloth",split="train",prefetch=prefetch,is_data_graph=is_graph)
     dl = iter(dl)
@@ -477,7 +500,7 @@ if __name__ == "__main__":
     #     next(dl)
     end_time = time.time()
     a = next(dl)[0]
-    print(a[0].edge_sets[0])
+    print(a)
     
     execution_time = (end_time - start_time)/100
     print(f"运行时间: {execution_time} 秒")
