@@ -180,7 +180,7 @@ def learner(model, loss_fn, run_step_config):
 
                     running_loss += loss.cpu().item()
                     loss_save_cnt += 1
-                    if (step + 1 - fixed_pass_count) % loss_save_interval == 0:
+                    if loss_save_cnt % loss_save_interval == 0:
                         avg_loss = running_loss / loss_save_cnt
                         losses.append(avg_loss)
                         running_loss = 0.0

@@ -402,7 +402,7 @@ if __name__ == "__main__":
     # ds = cloth_datasets("D:\project_summary\Graduation Project\\tmp\datasets_np\\flag_simple\\train")
     # ds = flow_datasets("D:\project_summary\Graduation Project\\tmp\datasets_np\\cylinder_flow\\train")
     prefetch = 0
-    is_graph = True
+    is_graph = False
     use_h5 = True
     print(f'prefetch: {prefetch}, is_graph: {is_graph}, is_useh5: {use_h5}')
     if use_h5:
@@ -412,7 +412,10 @@ if __name__ == "__main__":
     dl = iter(dl)
     start_time = time.time()
     # for _ in range(100):
-    print(next(dl))
+    #     next(dl)
     end_time = time.time()
+    a = next(dl)[0]
+    print(a['mesh_pos'],a['world_pos'])
+    print(sum( (a['world_pos'][0]-a['world_pos'][1]) ** 2))
     execution_time = (end_time - start_time)/100
     print(f"运行时间: {execution_time} 秒")
