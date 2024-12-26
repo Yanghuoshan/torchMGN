@@ -245,7 +245,7 @@ def main(argv):
                        'message_passing_steps': FLAGS.message_passing_steps,
                     #    'is_use_world_edge':FLAGS.is_use_world_edge,
                        'dataset_dir': os.path.join(FLAGS.datasets_dir, FLAGS.dataset),
-                       'last_run_dir': None}    
+                       'last_run_dir': last_run_dir}    
     if FLAGS.datasets_dir[-4:]=='hdf5':
         run_step_config['use_hdf5'] = True
     else:
