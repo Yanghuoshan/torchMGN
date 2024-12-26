@@ -96,12 +96,13 @@ class Model(nn.Module):
         
     def forward_with_graph(self, graph, is_training):
         # graph features normalization
+        new_node_features = self._node_normalizer(graph.node_features)
         new_mesh_edges = replace(graph.edge_sets[0],features = self._mesh_edge_normalizer(graph.edge_sets[0].features))
         
-        new_graph = replace(graph, edge_sets=[new_mesh_edges])
+        graph = replace(graph, node_features=new_node_features, edge_sets=[new_mesh_edges])
 
         if is_training:
-            return self.learned_model(new_graph)
+            return self.learned_model(graph)
 
     def _update(self, inputs, per_node_network_output):
         """
