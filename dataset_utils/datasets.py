@@ -20,6 +20,9 @@ from tqdm import trange
 
 from model_utils.common import build_graph_HyperEl, build_graph_Cloth
 
+from dataclasses import replace
+
+
 class HyperEl_single_dataset(torch.utils.data.Dataset):
     def __init__(self, path, is_data_graph = False):
         self.path = path
@@ -329,6 +332,65 @@ class Cloth_single_dataset_hdf5(torch.utils.data.Dataset):
 def my_collate_fn(batch): # cumstom collate fn
         # batch [data1, data2...]
         return batch
+
+
+def graph_collate_fn(batch):
+    """
+    Collate datas which are graph type
+    """
+    new_graph = None
+    new_target = None
+    new_node_type = None
+    ptr = [0]
+    for data in batch:
+        cumulative_node_num = ptr[-1]
+        if new_graph is None:
+            new_graph = data[0]
+            new_target = data[1]
+            new_node_type = data[2]
+        else:
+            new_graph.node_features = torch.concat((new_graph.node_features, data[0].node_features),dim=0)
+            for i, es in enumerate(data[0].edge_sets):
+                new_graph.edge_sets[i].features = torch.concat((new_graph.edge_sets[i].features, es.features),dim=0)
+                new_graph.edge_sets[i].senders = torch.concat((new_graph.edge_sets[i].senders, es.senders + cumulative_node_num),dim=0)
+                new_graph.edge_sets[i].receivers = torch.concat((new_graph.edge_sets[i].receivers, es.receivers + cumulative_node_num),dim=0)
+            new_target = torch.concat((new_target, data[1]),dim=0)
+            new_node_type = torch.concat((new_node_type, data[2]),dim=0)
+        ptr.append(cumulative_node_num + data[0].node_features.shape[0])
+
+    return [[new_graph, new_target, new_node_type, ptr[:]]]
+    # data = [graph, target, d['node_type']]
+    # return [multi_graph_data]
+
+def dict_collate_fn(batch):
+    """
+    Collate datas which are dict type
+    """
+    new_dict = None
+    ptr = [0]
+    for data in batch:
+        cumulative_node_num = ptr[-1]
+        if new_dict is None:
+            new_dict = dict(**data)
+        else:
+            for k,v in data.items():
+                if k == 'cells':
+                    v += cumulative_node_num
+                new_dict[k] = torch.concat((new_dict[k],v),dim=0)
+
+        ptr.append(cumulative_node_num + data['mesh_pos'].shape[0])
+    new_dict['ptr'] = ptr[:]
+    return [new_dict]
+    # dict(
+    #         cells=torch.LongTensor(data['cells'][sid, ...]),
+    #         node_type=torch.LongTensor(data['node_type'][sid, ...]),
+    #         mesh_pos=torch.Tensor(data['mesh_pos'][sid, ...]),
+    #         world_pos=torch.Tensor(data['world_pos'][sid + 1, ...]),
+    #         prev_world_pos=torch.Tensor(data['world_pos'][sid, ...]),
+    #         target_world_pos=torch.Tensor(data['world_pos'][sid + 2, ...])
+    #     )
+
+
     
 def get_dataloader(path, 
                    model = "Cloth",
@@ -402,7 +464,7 @@ if __name__ == "__main__":
     # ds = cloth_datasets("D:\project_summary\Graduation Project\\tmp\datasets_np\\flag_simple\\train")
     # ds = flow_datasets("D:\project_summary\Graduation Project\\tmp\datasets_np\\cylinder_flow\\train")
     prefetch = 0
-    is_graph = False
+    is_graph = True
     use_h5 = True
     print(f'prefetch: {prefetch}, is_graph: {is_graph}, is_useh5: {use_h5}')
     if use_h5:
@@ -415,7 +477,7 @@ if __name__ == "__main__":
     #     next(dl)
     end_time = time.time()
     a = next(dl)[0]
-    print(a['mesh_pos'],a['world_pos'])
-    print(sum( (a['world_pos'][0]-a['world_pos'][1]) ** 2))
+    print(a[0].edge_sets[0])
+    
     execution_time = (end_time - start_time)/100
     print(f"运行时间: {execution_time} 秒")
