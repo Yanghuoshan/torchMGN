@@ -246,16 +246,18 @@ def main(argv):
                     #    'is_use_world_edge':FLAGS.is_use_world_edge,
                        'dataset_dir': os.path.join(FLAGS.datasets_dir, FLAGS.dataset),
                        'last_run_dir': last_run_dir}    
-    if FLAGS.datasets_dir[-4:]=='hdf5':
-        run_step_config['use_hdf5'] = True
-    else:
-        run_step_config['use_hdf5'] = False
+
 
     if last_run_dir is not None and use_prev_config:
         last_run_step_dir = find_nth_latest_run_step(last_run_dir, 1)
         run_step_config = pickle_load(os.path.join(last_run_step_dir, 'log', 'config.pkl'))
         run_step_config['last_run_dir'] = last_run_dir
-        run_step_config['last_run_step_dir'] = last_run_step_dir ## 与303行重复可以优化
+        run_step_config['last_run_step_dir'] = last_run_step_dir
+
+    if FLAGS.datasets_dir[-4:]=='hdf5':
+        run_step_config['use_hdf5'] = True
+    else:
+        run_step_config['use_hdf5'] = False
 
 
     # setup directories
@@ -300,7 +302,6 @@ def main(argv):
 
     if last_run_dir is not None:
         last_run_step_dir = find_nth_latest_run_step(last_run_dir, 2)
-        run_step_config['last_run_step_dir'] = last_run_step_dir ## 可以优化
         model.load_model(os.path.join(last_run_step_dir, 'checkpoint', "model_checkpoint"))
         root_logger.info(
             "Loaded checkpoint file in " + str(
