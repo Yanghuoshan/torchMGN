@@ -401,11 +401,18 @@ if __name__ == "__main__":
     # ds = deforming_datasets("D:\project_summary\Graduation Project\\tmp\datasets_np\deforming_plate\\train")
     # ds = cloth_datasets("D:\project_summary\Graduation Project\\tmp\datasets_np\\flag_simple\\train")
     # ds = flow_datasets("D:\project_summary\Graduation Project\\tmp\datasets_np\\cylinder_flow\\train")
-    dl = get_dataloader_hdf5("D:\project_summary\Graduation Project\\tmp\datasets_hdf5\\flag_simple",model="Cloth",split="train",prefetch=0,is_data_graph=False)
+    prefetch = 0
+    is_graph = True
+    use_h5 = True
+    print(f'prefetch: {prefetch}, is_graph: {is_graph}, is_useh5: {use_h5}')
+    if use_h5:
+        dl = get_dataloader_hdf5("D:\project_summary\Graduation Project\\tmp\datasets_hdf5\\flag_simple",model="Cloth",split="train",prefetch=prefetch,is_data_graph=is_graph)
+    else:
+        dl = get_dataloader("D:\project_summary\Graduation Project\\tmp\datasets_np\\flag_simple",model="Cloth",split="train",prefetch=prefetch,is_data_graph=is_graph)
     dl = iter(dl)
     start_time = time.time()
-    for _ in range(100):
-        next(dl)
+    # for _ in range(100):
+    print(next(dl))
     end_time = time.time()
     execution_time = (end_time - start_time)/100
     print(f"运行时间: {execution_time} 秒")

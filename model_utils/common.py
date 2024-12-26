@@ -59,7 +59,7 @@ class MultiGraph:
 
 
 def triangles_to_edges(faces, rectangle=False):
-    """Computes mesh edges from triangles."""
+    """Computes mesh two ways edges from triangles and rectangles."""
     if not rectangle:
         # collect edges from triangles
         edges = torch.cat((faces[:, 0:2],
@@ -71,14 +71,13 @@ def triangles_to_edges(faces, rectangle=False):
         receivers, _ = torch.min(edges, dim=1)
         senders, _ = torch.max(edges, dim=1)
 
-        packed_edges = torch.stack((senders, receivers), dim=1)
-        unique_edges = torch.unique(packed_edges, return_inverse=False, return_counts=False, dim=0)
-        senders, receivers = torch.unbind(unique_edges, dim=1)
-        senders = senders.to(torch.int64)
-        receivers = receivers.to(torch.int64)
+        edges = torch.stack((senders, receivers), dim=1)
+        edges = torch.unique(edges, return_inverse=False, return_counts=False, dim=0)
+        senders, receivers = torch.unbind(edges, dim=1)
+        # senders = senders.to(torch.int64)
+        # receivers = receivers.to(torch.int64)
 
-        two_way_connectivity = (torch.cat((senders, receivers), dim=0), torch.cat((receivers, senders), dim=0))
-        return {'two_way_connectivity': two_way_connectivity, 'senders': senders, 'receivers': receivers}
+        return torch.cat((senders, receivers), dim=0), torch.cat((receivers, senders), dim=0)
     else:
         edges = torch.cat((faces[:, 0:2],
                            faces[:, 1:3],
@@ -90,32 +89,31 @@ def triangles_to_edges(faces, rectangle=False):
         receivers, _ = torch.min(edges, dim=1)
         senders, _ = torch.max(edges, dim=1)
 
-        packed_edges = torch.stack((senders, receivers), dim=1)
-        unique_edges = torch.unique(packed_edges, return_inverse=False, return_counts=False, dim=0)
-        senders, receivers = torch.unbind(unique_edges, dim=1)
-        senders = senders.to(torch.int64)
-        receivers = receivers.to(torch.int64)
+        edges = torch.stack((senders, receivers), dim=1)
+        edges = torch.unique(edges, return_inverse=False, return_counts=False, dim=0)
+        senders, receivers = torch.unbind(edges, dim=1)
+        # senders = senders.to(torch.int64)
+        # receivers = receivers.to(torch.int64)
 
-        two_way_connectivity = (torch.cat((senders, receivers), dim=0), torch.cat((receivers, senders), dim=0))
-        return {'two_way_connectivity': two_way_connectivity, 'senders': senders, 'receivers': receivers}
+        return torch.cat((senders, receivers), dim=0), torch.cat((receivers, senders), dim=0)
     
-def rectangles_to_edges(faces):
-    edges = torch.cat((faces[:, 0:2],
-                           faces[:, 1:3],
-                           faces[:, 2:4],
-                           torch.stack((faces[:, 3], faces[:, 0]), dim=1)), dim=0)
-    # those edges are sometimes duplicated (within the mesh) and sometimes
-    # single (at the mesh boundary).
-    # sort & pack edges as single tf.int64
-    receivers, _ = torch.min(edges, dim=1)
-    senders, _ = torch.max(edges, dim=1)
-    packed_edges = torch.stack((senders, receivers), dim=1)
-    unique_edges = torch.unique(packed_edges, return_inverse=False, return_counts=False, dim=0)
-    senders, receivers = torch.unbind(unique_edges, dim=1)
-    senders = senders.to(torch.int64)
-    receivers = receivers.to(torch.int64)
-    two_way_connectivity = (torch.cat((senders, receivers), dim=0), torch.cat((receivers, senders), dim=0))
-    return {'two_way_connectivity': two_way_connectivity, 'senders': senders, 'receivers': receivers}
+# def rectangles_to_edges(faces):
+#     edges = torch.cat((faces[:, 0:2],
+#                            faces[:, 1:3],
+#                            faces[:, 2:4],
+#                            torch.stack((faces[:, 3], faces[:, 0]), dim=1)), dim=0)
+#     # those edges are sometimes duplicated (within the mesh) and sometimes
+#     # single (at the mesh boundary).
+#     # sort & pack edges as single tf.int64
+#     receivers, _ = torch.min(edges, dim=1)
+#     senders, _ = torch.max(edges, dim=1)
+#     packed_edges = torch.stack((senders, receivers), dim=1)
+#     unique_edges = torch.unique(packed_edges, return_inverse=False, return_counts=False, dim=0)
+#     senders, receivers = torch.unbind(unique_edges, dim=1)
+#     senders = senders.to(torch.int64)
+#     receivers = receivers.to(torch.int64)
+#     two_way_connectivity = (torch.cat((senders, receivers), dim=0), torch.cat((receivers, senders), dim=0))
+#     return {'two_way_connectivity': two_way_connectivity, 'senders': senders, 'receivers': receivers}
 
 
 def build_graph_HyperEl(inputs, rectangle=True):
@@ -127,8 +125,7 @@ def build_graph_HyperEl(inputs, rectangle=True):
     one_hot_node_type = F.one_hot(node_type[:, 0].to(torch.int64), NodeType.SIZE).float()
 
     cells = inputs['cells']
-    decomposed_cells = triangles_to_edges(cells, rectangle=True)
-    senders, receivers = decomposed_cells['two_way_connectivity']
+    senders, receivers = triangles_to_edges(cells, rectangle=True)
 
 
     # find world edge
@@ -187,21 +184,18 @@ def build_graph_HyperEl(inputs, rectangle=True):
 
 def build_graph_Cloth(inputs, rectangle=False):
         """Builds input graph."""
-        world_pos = inputs['world_pos']
-        prev_world_pos = inputs['prev_world_pos']
         node_type = inputs['node_type']
-        velocity = world_pos - prev_world_pos
+        velocity = inputs['world_pos'] - inputs['prev_world_pos']
         one_hot_node_type = F.one_hot(node_type[:, 0].to(torch.int64), NodeType.SIZE)
 
         node_features = torch.cat((velocity, one_hot_node_type), dim=-1)
 
         cells = inputs['cells']
-        decomposed_cells = triangles_to_edges(cells, rectangle=False)
-        senders, receivers = decomposed_cells['two_way_connectivity']
+        senders, receivers = triangles_to_edges(cells, rectangle=False)
 
         mesh_pos = inputs['mesh_pos']
-        relative_world_pos = (torch.index_select(input=world_pos, dim=0, index=senders) -
-                              torch.index_select(input=world_pos, dim=0, index=receivers))
+        relative_world_pos = (torch.index_select(input=inputs['world_pos'], dim=0, index=senders) -
+                              torch.index_select(input=inputs['world_pos'], dim=0, index=receivers))
         relative_mesh_pos = (torch.index_select(mesh_pos, 0, senders) -
                              torch.index_select(mesh_pos, 0, receivers))
         

@@ -47,8 +47,7 @@ class Model(nn.Module):
         one_hot_node_type = F.one_hot(node_type[:, 0].to(torch.int64), common.NodeType.SIZE).float()
 
         cells = inputs['cells']
-        decomposed_cells = common.triangles_to_edges(cells, rectangle=True)
-        senders, receivers = decomposed_cells['two_way_connectivity']
+        senders, receivers = common.triangles_to_edges(cells, rectangle=True)
 
 
         # find world edge

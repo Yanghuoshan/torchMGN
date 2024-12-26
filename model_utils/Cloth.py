@@ -58,21 +58,18 @@ class Model(nn.Module):
 
     def _build_graph(self, inputs):
         """Builds input graph."""
-        world_pos = inputs['world_pos']
-        prev_world_pos = inputs['prev_world_pos']
-        node_type = inputs['node_type']
-        velocity = world_pos - prev_world_pos
-        one_hot_node_type = F.one_hot(node_type[:, 0].to(torch.int64), common.NodeType.SIZE)
-
-        node_features = torch.cat((velocity, one_hot_node_type), dim=-1)
+        # node_type = inputs['node_type']
+        # velocity = inputs['world_pos'] - inputs['prev_world_pos']
+        # one_hot_node_type = F.one_hot(node_type[:, 0].to(torch.int64), common.NodeType.SIZE)
+        # node_features = torch.cat((velocity, one_hot_node_type), dim=-1)
+        node_features = torch.cat((inputs['world_pos'] - inputs['prev_world_pos'], F.one_hot(inputs['node_type'][:, 0].to(torch.int64), common.NodeType.SIZE)), dim=-1)
 
         cells = inputs['cells']
-        decomposed_cells = common.triangles_to_edges(cells)
-        senders, receivers = decomposed_cells['two_way_connectivity']
+        senders, receivers = common.triangles_to_edges(cells)
 
         mesh_pos = inputs['mesh_pos']
-        relative_world_pos = (torch.index_select(input=world_pos, dim=0, index=senders) -
-                              torch.index_select(input=world_pos, dim=0, index=receivers))
+        relative_world_pos = (torch.index_select(input=inputs['world_pos'], dim=0, index=senders) -
+                              torch.index_select(input=inputs['world_pos'], dim=0, index=receivers))
         relative_mesh_pos = (torch.index_select(mesh_pos, 0, senders) -
                              torch.index_select(mesh_pos, 0, receivers))
         edge_features = torch.cat((
