@@ -255,7 +255,7 @@ def main(argv):
         last_run_step_dir = find_nth_latest_run_step(last_run_dir, 1)
         run_step_config = pickle_load(os.path.join(last_run_step_dir, 'log', 'config.pkl'))
         run_step_config['last_run_dir'] = last_run_dir
-        run_step_config['last_run_step_dir'] = last_run_step_dir
+        run_step_config['last_run_step_dir'] = last_run_step_dir ## 与303行重复可以优化
 
 
     # setup directories
@@ -300,6 +300,7 @@ def main(argv):
 
     if last_run_dir is not None:
         last_run_step_dir = find_nth_latest_run_step(last_run_dir, 2)
+        run_step_config['last_run_step_dir'] = last_run_step_dir ## 可以优化
         model.load_model(os.path.join(last_run_step_dir, 'checkpoint', "model_checkpoint"))
         root_logger.info(
             "Loaded checkpoint file in " + str(
