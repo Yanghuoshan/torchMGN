@@ -14,7 +14,6 @@ import gc
 from dataset_utils import datasets 
 from model_utils import HyperEl,Cloth
 from model_utils.common import *
-from model_utils.encode_process_decode import init_weights
 from run_utils.utils import *
 
 import time
@@ -25,7 +24,7 @@ import torch.distributed as dist
 
 import matplotlib
 import matplotlib.pyplot as plt
-from tqdm import tqdm, trange
+from tqdm import trange
 
 
 
