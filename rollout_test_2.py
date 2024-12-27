@@ -62,11 +62,11 @@ is_data_graph = False
 dl = datasets.get_trajectory_dataloader("D:\project_summary\Graduation Project\\tmp\datasets_np\\flag_simple",
                                         model="Cloth",
                                         is_data_graph=is_data_graph, 
-                                        trajectory_index=0)
+                                        trajectory_index=4)
 trajectory = iter(dl)
 init_state = next(trajectory)[0]
 for k in init_state:
     init_state[k] = init_state[k].to(device)
 new_trajectory =rollout(model,init_state,200)
-render(new_trajectory)
+render(new_trajectory, skip=5)
 

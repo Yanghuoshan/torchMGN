@@ -38,7 +38,7 @@ flags.DEFINE_string('datasets_dir','D:\\project_summary\\Graduation Project\\tmp
 flags.DEFINE_enum('dataset', 'flag_simple', ['deforming_plate','flag_simple'], 'Select dataset to run')
 flags.DEFINE_boolean('is_data_graph', False, 'is dataloader output graph')
 flags.DEFINE_integer('prefetch', 1, 'prefetch size')
-flags.DEFINE_integer('batch_size', 1)
+flags.DEFINE_integer('batch_size', 1, 'batch size')
 
 flags.DEFINE_float('lr_init',1e-4,'Initial learning rate')
 flags.DEFINE_integer('epochs', 2, 'Num of training epochs')

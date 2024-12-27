@@ -50,12 +50,12 @@ import torch
 # if __name__ == '__main__':
 #   app.run(main)
 
-def render(trajectory):
+def render(trajectory, skip=1):
     trajectory['world_pos'] = trajectory['world_pos'].to('cpu')
     trajectory['cells'] = trajectory['cells'].to('cpu')
     fig = plt.figure(figsize=(8, 8))
     ax = fig.add_subplot(111, projection='3d')
-    skip = 1
+    skip = skip
     num_steps = trajectory['world_pos'].shape[0] # total steps
     # num_frames = len(rollout_data) * num_steps // skip
 
