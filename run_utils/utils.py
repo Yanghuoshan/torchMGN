@@ -116,7 +116,7 @@ def save_checkpoint(model, optimizer, scheduler, step, losses, run_step_config):
     torch.save({'losses': losses}, os.path.join(run_step_config['checkpoint_dir'], "losses_checkpoint.pth"))
 
 
-def learner(model, loss_fn, run_step_config, device, datasets, init_weights):
+def learner(model, loss_fn, run_step_config, device):
     root_logger = logging.getLogger()
     root_logger.info(f"Use gpu {run_step_config['gpu_id']}")
     optimizer = torch.optim.Adam(model.parameters(), lr=run_step_config['lr_init'])
