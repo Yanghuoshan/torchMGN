@@ -115,6 +115,28 @@ def triangles_to_edges(faces, rectangle=False):
 #     two_way_connectivity = (torch.cat((senders, receivers), dim=0), torch.cat((receivers, senders), dim=0))
 #     return {'two_way_connectivity': two_way_connectivity, 'senders': senders, 'receivers': receivers}
 
+def generate_world_edges(world_pos, radius, mesh_senders=None, mesh_receivers=None):
+    """
+    world_pos:     The world field positions of mesh points
+    radius:        Threshold of the max edge length
+    mesh_senders:  The mesh field edges' senders
+    mesh_receiver: The mesh field edges's receivers
+    """
+    radius = 0.03
+    world_distance_matrix = torch.cdist(world_pos, world_pos, p=2)
+    world_connection_matrix = torch.where(world_distance_matrix < radius, True, False)
+
+    # remove self connection
+    world_connection_matrix = world_connection_matrix.fill_diagonal_(False)
+
+    # remove world edge node pairs that already exist in mesh edge collection
+    if mesh_senders is not None:
+        world_connection_matrix[mesh_senders, mesh_receivers] = torch.tensor(False, dtype=torch.bool, device=mesh_senders.device)
+
+    world_senders, world_receivers = torch.nonzero(world_connection_matrix, as_tuple=True)
+
+    return world_senders, world_receivers
+
 
 def build_graph_HyperEl(inputs, rectangle=True):
     """Builds input graph."""

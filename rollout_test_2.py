@@ -36,7 +36,7 @@ os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 # }
 # params = PARAMETERS['deform']
 # model = HyperEl.Model(4, message_passing_steps=7).to(device)
-last_run_dir = "D:\project_summary\Graduation Project\\torchMGN\output\Cloth\Sat-Dec-21-00-31-08-2024"
+last_run_dir = "D:\project_summary\Graduation Project\\torchMGN\output\Cloth\Thu-Dec-26-21-11-24-2024"
 last_run_step_dir = find_nth_latest_run_step(last_run_dir, 1)
 run_step_config = pickle_load(os.path.join(last_run_step_dir, 'log', 'config.pkl'))
 run_step_config['last_run_dir'] = last_run_dir
@@ -49,7 +49,7 @@ model = eval(run_step_config['model']).Model(run_step_config['output_size'],
                                                 )
 last_run_step_dir = find_nth_latest_run_step(last_run_dir, 1)
 model.load_model(os.path.join(last_run_step_dir, 'checkpoint', "model_checkpoint"))
-        
+print("Load model:",os.path.join(last_run_step_dir, 'checkpoint', "model_checkpoint"))
 # model.load_model(os.path.join(last_run_step_dir, 'checkpoint', "model_checkpoint"))
 
 model.to(device)
@@ -67,6 +67,6 @@ trajectory = iter(dl)
 init_state = next(trajectory)[0]
 for k in init_state:
     init_state[k] = init_state[k].to(device)
-new_trajectory =rollout(model,init_state,2)
+new_trajectory =rollout(model,init_state,200)
 render(new_trajectory)
 
