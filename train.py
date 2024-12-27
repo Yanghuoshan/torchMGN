@@ -13,7 +13,7 @@ import gc
 
 from dataset_utils import datasets 
 from model_utils import HyperEl,Cloth
-from model_utils.common import NodeType
+from model_utils.common import *
 from model_utils.encode_process_decode import init_weights
 from run_utils.utils import *
 
@@ -63,173 +63,6 @@ flags.DEFINE_boolean('use_prev_config', True, 'Decide whether to use the configu
 flags.DEFINE_bool('start_new_trained_step', True, 'Decide whether continue the last trained steps or start new steps')
 device = None
 
-
-def save_checkpoint(model, optimizer, scheduler, step, losses, run_step_config):
-    # save checkpoint to prevent interruption
-    model.save_model(os.path.join(run_step_config['checkpoint_dir'], f"model_checkpoint"))
-    torch.save(optimizer.state_dict(), os.path.join(run_step_config['checkpoint_dir'], f"optimizer_checkpoint.pth"))
-    torch.save(scheduler.state_dict(), os.path.join(run_step_config['checkpoint_dir'], f"scheduler_checkpoint.pth"))
-    # save the steps that have been already trained
-    torch.save({'trained_step': step}, os.path.join(run_step_config['checkpoint_dir'], "step_checkpoint.pth"))
-    # save the previous losses
-    torch.save({'losses': losses}, os.path.join(run_step_config['checkpoint_dir'], "losses_checkpoint.pth"))
-
-
-def learner(model, loss_fn, run_step_config):
-    root_logger = logging.getLogger()
-    root_logger.info(f"Use gpu {run_step_config['gpu_id']}")
-    optimizer = torch.optim.Adam(model.parameters(), lr=run_step_config['lr_init'])
-    scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, 0.1 + 1e-6, last_epoch=-1)
-
-    losses = []
-    loss_save_interval = 1000
-    loss_save_cnt = 0
-    running_loss = 0.0
-    trained_epoch = 0
-    trained_step = 0
-
-    if run_step_config['last_run_dir'] is not None:
-        optimizer.load_state_dict(torch.load(os.path.join(run_step_config['last_run_step_dir'], 'checkpoint', "optimizer_checkpoint.pth")))
-        scheduler.load_state_dict(torch.load(os.path.join(run_step_config['last_run_step_dir'], 'checkpoint', "scheduler_checkpoint.pth")))
-        trained_step = torch.load(os.path.join(run_step_config['last_run_step_dir'], 'checkpoint', "step_checkpoint.pth"))['trained_step'] + 1
-        losses = torch.load(os.path.join(run_step_config['last_run_step_dir'], 'checkpoint', "losses_checkpoint.pth"))['losses'][:]
-        root_logger.info("Loaded optimizer, scheduler and model epoch checkpoint\n")
-
-    # pre run for normalizer
-    fixed_pass_count = 500 # equal to pass_count but doesn't change
-    pass_count = 500
-    if run_step_config['last_run_dir'] is not None:
-        pass_count = 0
-
-    # run the left steps or not
-    not_reached_max_steps = True
-    step = 0
-    if run_step_config['last_run_dir'] is not None and not run_step_config['start_new_trained_step']:
-        step = trained_step
-    
-    # dry run for lazy linear layers initialization
-    is_dry_run = True
-    if run_step_config['last_run_dir'] is not None:
-        is_dry_run = False
-        root_logger.info("No Dry run")
-
-    while not_reached_max_steps:
-        for epoch in range(run_step_config['epochs'])[trained_epoch:]:
-            # model will train itself with the whole dataset
-            if run_step_config['use_hdf5']:
-                if run_step_config['batch_size'] > 1:
-                    ds_loader = datasets.get_dataloader_hdf5_batch(run_step_config['dataset_dir'],
-                                                        model=run_step_config['model'],
-                                                        split='train',
-                                                        shuffle=True,
-                                                        prefetch=run_step_config['prefetch'], 
-                                                        batch_size=run_step_config['batch_size'],
-                                                        is_data_graph=run_step_config['is_data_graph'])
-                else:
-                    ds_loader = datasets.get_dataloader_hdf5(run_step_config['dataset_dir'],
-                                                        model=run_step_config['model'],
-                                                        split='train',
-                                                        shuffle=True,
-                                                        prefetch=run_step_config['prefetch'], 
-                                                        is_data_graph=run_step_config['is_data_graph'])
-            else:
-                ds_loader = datasets.get_dataloader(run_step_config['dataset_dir'],
-                                                    model=run_step_config['model'],
-                                                    split='train',
-                                                    shuffle=True,
-                                                    prefetch=run_step_config['prefetch'], 
-                                                    is_data_graph=run_step_config['is_data_graph'])
-            root_logger.info("Epoch " + str(epoch + 1) + "/" + str(run_step_config['epochs']))
-            ds_iterator = iter(ds_loader)
-
-            # dry run
-            if is_dry_run:
-                if run_step_config['is_data_graph']:
-                    input = next(ds_iterator)
-                    graph =input[0][0].to(device)
-                    target = input[0][1].to(device)
-                    node_type = input[0][2].to(device)
-
-                    model.forward_with_graph(graph,True)
-                    
-                else:
-                    input = next(ds_iterator)[0]
-                    for k in input:
-                        input[k]=input[k].to(device)
-
-                    model(input,is_training=True)
-
-                model.apply(init_weights)
-                    
-                is_dry_run = False
-                root_logger.info("Dry run finished")
-            
-            # start to train
-            for input in ds_iterator:
-                if run_step_config['is_data_graph']:
-                    graph =input[0][0].to(device)
-                    target = input[0][1].to(device)
-                    node_type = input[0][2].to(device)
-
-                    out = model.forward_with_graph(graph,True)
-                    loss = loss_fn(target,out,node_type,model)
-                else:
-                    input = input[0]
-                    for k in input:
-                        input[k]=input[k].to(device)
-
-                    out = model(input,is_training=True)
-                    loss = loss_fn(input,out,model)
-
-                if pass_count > 0:
-                    pass_count -= 1
-                else:
-                    optimizer.zero_grad()
-                    loss.backward()
-                    optimizer.step()
-
-                    running_loss += loss.cpu().item()
-                    loss_save_cnt += 1
-                    if loss_save_cnt % loss_save_interval == 0:
-                        avg_loss = running_loss / loss_save_cnt
-                        losses.append(avg_loss)
-                        running_loss = 0.0
-                        loss_save_cnt = 0
-                        root_logger.info(f"Step [{step+1}], Loss: {avg_loss:.4f}")
-
-                # Save the model state between steps
-                if (step + 1- fixed_pass_count) % run_step_config['nsave_steps'] == 0:
-                    save_checkpoint(model, optimizer, scheduler, step, losses, run_step_config)
-                
-                # Break if step reaches the maximun
-                if (step+1) >= run_step_config['max_steps']:
-                    not_reached_max_steps = False
-                    break
-                
-                # memory cleaning
-                # if step % 100 == 0:
-                #     gc.collect()
-                #     torch.cuda.empty_cache()
-
-                step += 1
-
-            # Break if step reaches the maximun
-            if not_reached_max_steps == False:
-                break
-
-            # Save the model state between epochs
-            save_checkpoint(model, optimizer, scheduler, step, losses, run_step_config)
-            
-            if epoch == 13:
-                scheduler.step()
-                root_logger.info("Call scheduler in epoch " + str(epoch))
-
-    # Save the model state in the end
-    save_checkpoint(model, optimizer, scheduler, step, losses, run_step_config)
-
-
-
-
 def main(argv):
     global device
     device = torch.device(f'cuda:{FLAGS.gpu_id}')
@@ -264,7 +97,7 @@ def main(argv):
         run_step_config['last_run_dir'] = last_run_dir
         run_step_config['last_run_step_dir'] = last_run_step_dir
 
-    # The configurations above will be fixed in continuous trainings
+    # The run_step_config above will be fixed in continuous trainings
     # The configurations will be changed relying on every training settings 
 
     if FLAGS.datasets_dir[-4:]=='hdf5':
@@ -293,6 +126,8 @@ def main(argv):
     # setup logger
     root_logger = logger_setup(os.path.join(log_dir, 'log.log'))
     run_step_config_save_path = os.path.join(log_dir, 'config.pkl')
+
+    # save the run_step_config
     Path(run_step_config_save_path).touch()
     pickle_save(run_step_config_save_path, run_step_config)
 
@@ -335,7 +170,7 @@ def main(argv):
     # training part
 
     train_start = time.time()
-    learner(model, loss_fn, run_step_config)# <--- Training progress 
+    learner(model, loss_fn, run_step_config, device)# <--- The training progress is in run_utils  
     train_end = time.time()
     
     # save the running time
