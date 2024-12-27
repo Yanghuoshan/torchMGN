@@ -77,8 +77,8 @@ def save_checkpoint(model, optimizer, scheduler, step, losses, run_step_config):
 
 def learner(model, loss_fn, run_step_config):
     root_logger = logging.getLogger()
-    root_logger.info(f"Use gpu {FLAGS.gpu_id}")
-    optimizer = torch.optim.Adam(model.parameters(), lr=FLAGS.lr_init)
+    root_logger.info(f"Use gpu {run_step_config['gpu_id']}")
+    optimizer = torch.optim.Adam(model.parameters(), lr=run_step_config['lr_init'])
     scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, 0.1 + 1e-6, last_epoch=-1)
 
     losses = []
@@ -104,7 +104,7 @@ def learner(model, loss_fn, run_step_config):
     # run the left steps or not
     not_reached_max_steps = True
     step = 0
-    if run_step_config['last_run_dir'] is not None and not FLAGS.start_new_trained_step:
+    if run_step_config['last_run_dir'] is not None and not run_step_config['start_new_trained_step']:
         step = trained_step
     
     # dry run for lazy linear layers initialization
@@ -122,29 +122,29 @@ def learner(model, loss_fn, run_step_config):
                                                         model=run_step_config['model'],
                                                         split='train',
                                                         shuffle=True,
-                                                        prefetch=FLAGS.prefetch, 
+                                                        prefetch=run_step_config['prefetch'], 
                                                         batch_size=run_step_config['batch_size'],
-                                                        is_data_graph=FLAGS.is_data_graph)
+                                                        is_data_graph=run_step_config['is_data_graph'])
                 else:
                     ds_loader = datasets.get_dataloader_hdf5(run_step_config['dataset_dir'],
                                                         model=run_step_config['model'],
                                                         split='train',
                                                         shuffle=True,
-                                                        prefetch=FLAGS.prefetch, 
-                                                        is_data_graph=FLAGS.is_data_graph)
+                                                        prefetch=run_step_config['prefetch'], 
+                                                        is_data_graph=run_step_config['is_data_graph'])
             else:
                 ds_loader = datasets.get_dataloader(run_step_config['dataset_dir'],
                                                     model=run_step_config['model'],
                                                     split='train',
                                                     shuffle=True,
-                                                    prefetch=FLAGS.prefetch, 
-                                                    is_data_graph=FLAGS.is_data_graph)
+                                                    prefetch=run_step_config['prefetch'], 
+                                                    is_data_graph=run_step_config['is_data_graph'])
             root_logger.info("Epoch " + str(epoch + 1) + "/" + str(run_step_config['epochs']))
             ds_iterator = iter(ds_loader)
 
             # dry run
             if is_dry_run:
-                if FLAGS.is_data_graph:
+                if run_step_config['is_data_graph']:
                     input = next(ds_iterator)
                     graph =input[0][0].to(device)
                     target = input[0][1].to(device)
@@ -166,7 +166,7 @@ def learner(model, loss_fn, run_step_config):
             
             # start to train
             for input in ds_iterator:
-                if FLAGS.is_data_graph:
+                if run_step_config['is_data_graph']:
                     graph =input[0][0].to(device)
                     target = input[0][1].to(device)
                     node_type = input[0][2].to(device)
@@ -246,6 +246,7 @@ def main(argv):
     use_prev_config = FLAGS.use_prev_config
     run_step_config = {'model': FLAGS.model, 
                        'dataset': FLAGS.dataset, 
+                       'lr_init':FLAGS.lr_init,
                        'epochs': FLAGS.epochs, 
                        'max_steps':FLAGS.max_steps,
                        'nsave_steps':FLAGS.nsave_steps,
@@ -272,6 +273,11 @@ def main(argv):
         run_step_config['use_hdf5'] = False
 
     run_step_config['batch_size'] = FLAGS.batch_size
+    run_step_config['prefetch'] = FLAGS.prefetch
+    run_step_config['is_data_graph'] = FLAGS.is_data_graph
+    run_step_config['gpu_id'] = FLAGS.gpu_id
+
+    run_step_config['start_new_trained_step'] = FLAGS.start_new_trained_step
 
 
     # setup directories
