@@ -62,7 +62,7 @@ is_data_graph = False
 dl = datasets.get_trajectory_dataloader("D:\project_summary\Graduation Project\\tmp\datasets_np\\flag_simple",
                                         model="Cloth",
                                         is_data_graph=is_data_graph, 
-                                        trajectory_index=4)
+                                        trajectory_index=21)
 trajectory = iter(dl)
 init_state = next(trajectory)[0]
 for k in init_state:

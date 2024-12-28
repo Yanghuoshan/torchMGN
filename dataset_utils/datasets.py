@@ -357,6 +357,8 @@ def graph_collate_fn(batch):
             new_target = torch.concat((new_target, data[1]),dim=0)
             new_node_type = torch.concat((new_node_type, data[2]),dim=0)
         ptr.append(cumulative_node_num + data[0].node_features.shape[0])
+    
+    ptr = torch.tensor(ptr)
 
     return [[new_graph, new_target, new_node_type, ptr[:]]]
     # data = [graph, target, d['node_type']]
@@ -379,6 +381,9 @@ def dict_collate_fn(batch):
                 new_dict[k] = torch.concat((new_dict[k],v),dim=0)
 
         ptr.append(cumulative_node_num + data['mesh_pos'].shape[0])
+
+    ptr = torch.tensor(ptr)
+    
     new_dict['ptr'] = ptr[:]
     return [new_dict]
     # dict(
@@ -491,16 +496,16 @@ if __name__ == "__main__":
     use_h5 = True
     print(f'prefetch: {prefetch}, is_graph: {is_graph}, is_useh5: {use_h5}')
     if use_h5:
-        dl = get_dataloader_hdf5_batch("D:\project_summary\Graduation Project\\tmp\datasets_hdf5\\flag_simple",model="Cloth",split="train",prefetch=prefetch,is_data_graph=is_graph,batch_size=1)
+        dl = get_dataloader_hdf5_batch("D:\project_summary\Graduation Project\\tmp\datasets_hdf5\\flag_simple",model="Cloth",split="train",prefetch=prefetch,is_data_graph=is_graph,batch_size=2)
     else:
         dl = get_dataloader("D:\project_summary\Graduation Project\\tmp\datasets_np\\flag_simple",model="Cloth",split="train",prefetch=prefetch,is_data_graph=is_graph)
     dl = iter(dl)
     start_time = time.time()
-    for _ in range(100):
-        next(dl)
+    # for _ in range(100):
+    #     next(dl)
     end_time = time.time()
-    # a = next(dl)[0]
-    # print(a)
+    a = next(dl)[0]
+    print(a)
     
     execution_time = (end_time - start_time)/100
     print(f"运行时间: {execution_time} 秒")
