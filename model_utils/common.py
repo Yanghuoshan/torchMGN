@@ -147,16 +147,24 @@ def build_graph_HyperEl(inputs, rectangle=True):
 
     node_type = inputs['node_type']
 
+    ptr = inputs['ptr']
+
     one_hot_node_type = F.one_hot(node_type[:, 0].to(torch.int64), NodeType.SIZE).float()
 
     cells = inputs['cells']
     senders, receivers = triangles_to_edges(cells, rectangle=True)
 
-
+    
     # find world edge
     # 原论文应选用最小的mesh域的距离
     # 且原论文也没有规定obstacle和其他种类的node只能作为sender或receiver
     radius = 0.03
+    pre_i = ptr[0]
+    world_senders = None
+    world_receivers = None
+    for next_i in ptr[1:]:
+        generate_world_edges(world_pos[pre_i:next_i], radius, )
+
     world_distance_matrix = torch.cdist(world_pos, world_pos, p=2)
     world_connection_matrix = torch.where(world_distance_matrix < radius, True, False)
 
