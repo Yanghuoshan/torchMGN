@@ -47,15 +47,28 @@ class Model(nn.Module):
         one_hot_node_type = F.one_hot(node_type[:, 0].to(torch.int64), common.NodeType.SIZE).float()
 
         cells = inputs['cells']
+
+        ptr = inputs['ptr']
+
         senders, receivers = common.triangles_to_edges(cells, rectangle=True)
 
 
         # find world edge
         # 原论文应选用最小的mesh域的距离
         # 且原论文也没有规定obstacle和其他种类的node只能作为sender或receiver
-        radius = 0.03
         world_distance_matrix = torch.cdist(world_pos, world_pos, p=2)
-        world_connection_matrix = torch.where(world_distance_matrix < radius, True, False)
+
+        radius = 0.03
+        pre_i = ptr[0]
+        world_connection_matrix = torch.zeros_like(world_distance_matrix, dtype=torch.bool)
+        for next_i in ptr[1:]:
+            world_connection_segment = torch.zeros_like(world_distance_matrix, dtype=torch.bool)[pre_i:next_i,pre_i:next_i]=True
+
+            world_connection_segment = torch.where((world_distance_matrix < radius) & world_connection_segment, True, False)
+
+            world_connection_matrix = world_connection_matrix | world_connection_segment
+
+            pre_i = next_i
 
         # remove self connection
         world_connection_matrix = world_connection_matrix.fill_diagonal_(False)
