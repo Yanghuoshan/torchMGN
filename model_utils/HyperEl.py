@@ -37,7 +37,16 @@ class Model(nn.Module):
             message_passing_aggregator=self.message_passing_aggregator,
             is_use_world_edge=is_use_world_edge)
 
-    def _build_graph(self, inputs):
+    
+    def graph_normalization(self, graph):
+        new_mesh_edges = replace(graph.edge_sets[0],features = self._mesh_edge_normalizer(graph.edge_sets[0].features))
+        new_world_edges = replace(graph.edge_sets[1],features = self._world_edge_normalizer(graph.edge_sets[1].features))
+        
+        graph = replace(graph, edge_sets=[new_mesh_edges, new_world_edges])
+        return graph
+
+    
+    def build_graph(self, inputs):
         """Builds input graph."""
         world_pos = inputs['world_pos']
 
@@ -93,7 +102,7 @@ class Model(nn.Module):
 
         world_edges = common.EdgeSet(
             name='world_edges',
-            features=self._world_edge_normalizer(world_edge_features),
+            features=world_edge_features,
             # features=world_edge_features,
             receivers=world_receivers,
             senders=world_senders)
@@ -112,7 +121,7 @@ class Model(nn.Module):
 
         mesh_edges = common.EdgeSet(
             name='mesh_edges',
-            features=self._mesh_edge_normalizer(mesh_edge_features),
+            features=mesh_edge_features,
             # features=mesh_edge_features,
             receivers=receivers,
             senders=senders)
@@ -122,22 +131,27 @@ class Model(nn.Module):
         return (common.MultiGraph(node_features=node_features,
                                               edge_sets=[mesh_edges, world_edges]))
 
-    def forward(self, inputs, is_training):
-        graph = self._build_graph(inputs)
+    def forward(self, inputs, is_training, is_data_graph=False):
         if is_training:
+            if not is_data_graph:
+                inputs = self.build_graph(inputs)
+            graph = self.graph_normalization(inputs)
             return self.learned_model(graph)
         else:
+            graph = self.build_graph(inputs)
+            graph = self.graph_normalization(graph)
             return self._update(inputs, self.learned_model(graph))
     
     def forward_with_graph(self, graph, is_training):
         # graph features normalization
-        new_mesh_edges = replace(graph.edge_sets[0],features = self._mesh_edge_normalizer(graph.edge_sets[0].features))
-        new_world_edges = replace(graph.edge_sets[1],features = self._world_edge_normalizer(graph.edge_sets[1].features))
+        # new_mesh_edges = replace(graph.edge_sets[0],features = self._mesh_edge_normalizer(graph.edge_sets[0].features))
+        # new_world_edges = replace(graph.edge_sets[1],features = self._world_edge_normalizer(graph.edge_sets[1].features))
         
-        new_graph = replace(graph, edge_sets=[new_mesh_edges, new_world_edges])
+        # new_graph = replace(graph, edge_sets=[new_mesh_edges, new_world_edges])
+        graph = self.graph_normalization(graph)
 
         if is_training:
-            return self.learned_model(new_graph)
+            return self.learned_model(graph)
         
 
     def _update(self, inputs, per_node_network_output):

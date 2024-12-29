@@ -191,14 +191,14 @@ def learner(model, loss_fn, run_step_config, device):
                     target = input[0][1].to(device)
                     node_type = input[0][2].to(device)
 
-                    model.forward_with_graph(graph,True)
+                    model(graph, is_training = True, is_data_graph = True)
                     
                 else:
                     input = next(ds_iterator)[0]
                     for k in input:
                         input[k]=input[k].to(device)
 
-                    model(input,is_training=True)
+                    model(input, is_training = True, is_data_graph = False)
 
                 model.apply(init_weights)
                     
@@ -212,14 +212,14 @@ def learner(model, loss_fn, run_step_config, device):
                     target = input[0][1].to(device)
                     node_type = input[0][2].to(device)
 
-                    out = model.forward_with_graph(graph,True)
+                    out = model(graph, is_training = True, is_data_graph = True)
                     loss = loss_fn(target,out,node_type,model)
                 else:
                     input = input[0]
                     for k in input:
                         input[k]=input[k].to(device)
 
-                    out = model(input,is_training=True)
+                    out = model(input, is_training = True, is_data_graph = False)
                     loss = loss_fn(input,out,model)
 
                 if pass_count > 0:
