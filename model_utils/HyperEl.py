@@ -25,12 +25,11 @@ class Model(nn.Module):
         self._world_edge_normalizer = normalization.Normalizer(size=4, name='world_edge_normalizer') 
         self._displacement_base = None
 
-        self.core_model = encode_process_decode
         self.message_passing_steps = message_passing_steps
         self.message_passing_aggregator = message_passing_aggregator
 
         
-        self.learned_model = self.core_model.EncodeProcessDecode(
+        self.learned_model = encode_process_decode.EncodeProcessDecode(
             output_size=output_size,# 在deforming_plate中是4
             latent_size=128,
             num_layers=2,
@@ -76,55 +75,11 @@ class Model(nn.Module):
         # remove world edge node pairs that already exist in mesh edge collection
         world_connection_matrix[senders, receivers] = torch.tensor(False, dtype=torch.bool, device=senders.device)
 
-        # only obstacle and handle node as sender and normal node as receiver
-        '''no_connection_mask = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.OBSTACLE.value], device=device))
-        no_connection_mask = torch.logical_or(no_connection_mask, torch.eq(node_type[:, 0], torch.tensor([common.NodeType.HANDLE.value], device=device)))
-        no_connection_mask = torch.stack([no_connection_mask] * world_pos.shape[0], dim=1)
-        no_connection_mask_t = torch.transpose(no_connection_mask, 0, 1)
-        world_connection_matrix = torch.where(no_connection_mask_t, torch.tensor(0., dtype=torch.float32, device=device),
-                                              world_connection_matrix)
-        world_connection_matrix = torch.where(no_connection_mask, world_connection_matrix, torch.tensor(0., dtype=torch.float32, device=device))'''
-
-        # remove receivers whose node type is obstacle
-        '''no_connection_mask = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.OBSTACLE.value], device=device))
-        no_connection_mask_t = torch.transpose(torch.stack([no_connection_mask] * world_pos.shape[0], dim=1), 0, 1)
-        world_connection_matrix = torch.where(no_connection_mask_t, torch.tensor(False, dtype=torch.bool, device=device), world_connection_matrix)'''
-        # remove senders whose node type is handle and normal
-        '''connection_mask = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.OBSTACLE.value], device=device))
-        connection_mask = torch.stack([no_connection_mask] * world_pos.shape[0], dim=1)
-        world_connection_matrix = torch.where(connection_mask, world_connection_matrix, torch.tensor(False, dtype=torch.bool, device=device))'''
-        '''no_connection_mask_t = torch.transpose(torch.stack([no_connection_mask] * world_pos.shape[0], dim=1), 0, 1)
-        world_connection_matrix = torch.where(no_connection_mask_t,
-                                              torch.tensor(0., dtype=torch.float32, device=device),
-                                              world_connection_matrix)'''
-        '''world_connection_matrix = torch.where(no_connection_mask,
-                                              torch.tensor(0., dtype=torch.float32, device=device),
-                                              world_connection_matrix)'''
-        # remove senders whose type is normal or handle
-        '''no_connection_mask = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.NORMAL.value], device=device))
-        no_connection_mask = torch.logical_or(no_connection_mask, torch.eq(node_type[:, 0], torch.tensor([common.NodeType.HANDLE.value], device=device)))
-        no_connection_mask = torch.stack([no_connection_mask] * world_pos.shape[0], dim=1)
-        world_connection_matrix = torch.where(no_connection_mask, torch.tensor(0., dtype=torch.float32, device=device),
-                                              world_connection_matrix)'''
-        # select the closest sender
-        '''world_distance_matrix = torch.where(world_connection_matrix, world_distance_matrix, torch.tensor(float('inf'), device=device))
-        min_values, indices = torch.min(world_distance_matrix, 1)
-        world_senders = torch.arange(0, world_pos.shape[0], dtype=torch.int32, device=device)
-        world_s_r_tuple = torch.stack((world_senders, indices), dim=1)
-        world_senders_mask = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.OBSTACLE.value], device=device))
-        world_senders_mask_value = torch.logical_not(torch.isinf(min_values))
-        world_senders_mask = torch.logical_and(world_senders_mask, world_senders_mask_value)
-        world_s_r_tuple = world_s_r_tuple[world_senders_mask]
-        world_senders, world_receivers = torch.unbind(world_s_r_tuple, dim=1)'''
         # print(world_senders.shape[0])
         world_senders, world_receivers = torch.nonzero(world_connection_matrix, as_tuple=True)
 
         relative_world_pos = (torch.index_select(input=world_pos, dim=0, index=world_receivers) -
                               torch.index_select(input=world_pos, dim=0, index=world_senders))
-
-        '''relative_world_velocity = (torch.index_select(input=inputs['target|world_pos'], dim=0, index=world_senders) -
-                              torch.index_select(input=inputs['world_pos'], dim=0, index=world_senders))'''
-
 
         world_edge_features = torch.cat((
             relative_world_pos,
@@ -136,7 +91,7 @@ class Model(nn.Module):
             relative_world_velocity,
             torch.norm(relative_world_velocity, dim=-1, keepdim=True)), dim=-1)'''
 
-        world_edges = self.core_model.EdgeSet(
+        world_edges = common.EdgeSet(
             name='world_edges',
             features=self._world_edge_normalizer(world_edge_features),
             # features=world_edge_features,
@@ -155,28 +110,16 @@ class Model(nn.Module):
             all_relative_world_pos,
             torch.norm(all_relative_world_pos, dim=-1, keepdim=True)), dim=-1)
 
-        mesh_edges = self.core_model.EdgeSet(
+        mesh_edges = common.EdgeSet(
             name='mesh_edges',
             features=self._mesh_edge_normalizer(mesh_edge_features),
             # features=mesh_edge_features,
             receivers=receivers,
             senders=senders)
 
-        '''obstacle_mask = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.OBSTACLE.value], device=device))
-        obstacle_mask = torch.stack([obstacle_mask] * 3, dim=1)
-        masked_target_world_pos = torch.where(obstacle_mask, target_world_pos, torch.tensor(0., dtype=torch.float32, device=device))
-        masked_world_pos = torch.where(obstacle_mask, world_pos, torch.tensor(0., dtype=torch.float32, device=device))
-        # kinematic_nodes_features = self._node_normalizer(masked_target_world_pos - masked_world_pos)
-        kinematic_nodes_features = masked_target_world_pos - masked_world_pos
-        normal_node_features = torch.cat((torch.zeros_like(world_pos), one_hot_node_type), dim=-1)
-        kinematic_node_features = torch.cat((kinematic_nodes_features, one_hot_node_type), dim=-1)
-        obstacle_mask = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.OBSTACLE.value], device=device))
-        obstacle_mask = torch.stack([obstacle_mask] * 12, dim=1)
-        node_features = torch.where(obstacle_mask, kinematic_node_features, normal_node_features)'''
         node_features = one_hot_node_type
-
         
-        return (self.core_model.MultiGraph(node_features=node_features,
+        return (common.MultiGraph(node_features=node_features,
                                               edge_sets=[mesh_edges, world_edges]))
 
     def forward(self, inputs, is_training):

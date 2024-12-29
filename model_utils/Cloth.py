@@ -42,13 +42,10 @@ class Model(nn.Module):
         self._mesh_edge_normalizer = normalization.Normalizer(size=7, name='mesh_edge_normalizer')  # 2D coord + 3D coord + 2*length = 7
         # self._world_edge_normalizer = normalization.Normalizer(size=4, name='world_edge_normalizer')
 
-        self.core_model = encode_process_decode
         self.message_passing_steps = message_passing_steps
         self.message_passing_aggregator = message_passing_aggregator
         
-         
-        
-        self.learned_model = self.core_model.EncodeProcessDecode(
+        self.learned_model = encode_process_decode.EncodeProcessDecode(
             output_size=output_size,
             latent_size=128,
             num_layers=2,
@@ -78,13 +75,13 @@ class Model(nn.Module):
             relative_mesh_pos,
             torch.norm(relative_mesh_pos, dim=-1, keepdim=True)), dim=-1)
 
-        mesh_edges = self.core_model.EdgeSet(
+        mesh_edges = common.EdgeSet(
             name='mesh_edges',
             features=self._mesh_edge_normalizer(edge_features),
             receivers=receivers,
             senders=senders)
 
-        return (self.core_model.MultiGraph(node_features=self._node_normalizer(node_features),
+        return (common.MultiGraph(node_features=self._node_normalizer(node_features),
                                                edge_sets=[mesh_edges]))
 
     def forward(self, inputs, is_training):
