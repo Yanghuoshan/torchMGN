@@ -36,7 +36,7 @@ os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 # }
 # params = PARAMETERS['deform']
 # model = HyperEl.Model(4, message_passing_steps=7).to(device)
-last_run_dir = "D:\project_summary\Graduation Project\\torchMGN\output\Cloth\Sun-Dec-29-11-41-03-2024"
+last_run_dir = "D:\project_summary\Graduation Project\\torchMGN\output\Cloth\Sat-Dec-28-18-13-23-2024"
 last_run_step_dir = find_nth_latest_run_step(last_run_dir, 1)
 run_step_config = pickle_load(os.path.join(last_run_step_dir, 'log', 'config.pkl'))
 run_step_config['last_run_dir'] = last_run_dir
@@ -47,7 +47,7 @@ model = eval(run_step_config['model']).Model(run_step_config['output_size'],
                                                  run_step_config['message_passing_aggregator'],
                                                  run_step_config['message_passing_steps'],
                                                 )
-last_run_step_dir = find_nth_latest_run_step(last_run_dir, 1)
+last_run_step_dir = find_nth_latest_run_step(last_run_dir, 0)
 model.load_model(os.path.join(last_run_step_dir, 'checkpoint', "model_checkpoint"))
 print("Load model:",os.path.join(last_run_step_dir, 'checkpoint', "model_checkpoint"))
 # model.load_model(os.path.join(last_run_step_dir, 'checkpoint', "model_checkpoint"))
@@ -62,7 +62,7 @@ is_data_graph = False
 dl = datasets.get_trajectory_dataloader("D:\project_summary\Graduation Project\\tmp\datasets_np\\flag_simple",
                                         model="Cloth",
                                         is_data_graph=is_data_graph, 
-                                        trajectory_index=1)
+                                        trajectory_index=2)
 trajectory = iter(dl)
 init_state = next(trajectory)[0]
 for k in init_state:
