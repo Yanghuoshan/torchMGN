@@ -47,7 +47,7 @@ model = eval(run_step_config['model']).Model(run_step_config['output_size'],
                                                  run_step_config['message_passing_aggregator'],
                                                  run_step_config['message_passing_steps'],
                                                 )
-last_run_step_dir = find_nth_latest_run_step(last_run_dir, 0)
+last_run_step_dir = find_nth_latest_run_step(last_run_dir, 1)
 model.load_model(os.path.join(last_run_step_dir, 'checkpoint', "model_checkpoint"))
 print("Load model:",os.path.join(last_run_step_dir, 'checkpoint', "model_checkpoint"))
 # model.load_model(os.path.join(last_run_step_dir, 'checkpoint', "model_checkpoint"))
@@ -62,7 +62,7 @@ is_data_graph = False
 dl = datasets.get_trajectory_dataloader("D:\project_summary\Graduation Project\\tmp\datasets_np\\flag_simple",
                                         model="Cloth",
                                         is_data_graph=is_data_graph, 
-                                        trajectory_index=2)
+                                        trajectory_index=0)
 trajectory = iter(dl)
 init_state = next(trajectory)[0]
 for k in init_state:

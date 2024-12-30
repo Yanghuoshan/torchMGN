@@ -261,9 +261,9 @@ def learner(model, loss_fn, run_step_config, device):
             # Save the model state between epochs
             save_checkpoint(model, optimizer, scheduler, step, losses, run_step_config)
             
-            if epoch == 4:
+            if epoch == 3:
                 scheduler.step()
-                root_logger.info("Call scheduler in epoch " + str(epoch))
+                root_logger.info("Call scheduler in epoch " + str(epoch + 1))
 
     # Save the model state in the end
     save_checkpoint(model, optimizer, scheduler, step, losses, run_step_config)
