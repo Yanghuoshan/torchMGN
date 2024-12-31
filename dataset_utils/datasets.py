@@ -306,12 +306,13 @@ class Cloth_single_dataset_hdf5(torch.utils.data.Dataset):
             prev_world_pos=torch.Tensor(data['world_pos'][sid, ...]),
             target_world_pos=torch.Tensor(data['world_pos'][sid + 2, ...])
         )
+        
         if self.add_noise_func is not None:
-            new_dict = self.add_noise_func(new_dict)
-        else:
-            return new_dict
+            new_dict = self.add_noise_func(new_dict)    
         
+        return new_dict
         
+
     def return_graph(self, data, sid):
         d = dict(
             cells=torch.LongTensor(data['cells'][sid, ...]),
