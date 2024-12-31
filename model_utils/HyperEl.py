@@ -238,7 +238,7 @@ def loss_fn(inputs, network_output, model):
 
     # build loss
     # print(network_output[187])
-    node_type = inputs['node_type']
+    node_type = inputs['node_type'].to(network_output.device)
     loss_mask = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.NORMAL.value], device=network_output.device).int())
     # loss_mask = torch.logical_not(loss_mask)
     # loss_mask = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.OBSTACLE.value], device=device).int())

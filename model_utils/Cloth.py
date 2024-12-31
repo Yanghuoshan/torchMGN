@@ -178,7 +178,7 @@ def loss_fn(inputs, network_output, model):
     target_normalized = model.get_output_normalizer()(target_acceleration)
 
     # build loss
-    node_type = inputs['node_type']
+    node_type = inputs['node_type'].to(network_output.device)
     loss_mask = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.NORMAL.value], device=network_output.device).int())
     error = torch.sum((target_normalized - network_output) ** 2, dim=1)
     loss = torch.mean(error[loss_mask])  
