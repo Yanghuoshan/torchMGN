@@ -150,7 +150,10 @@ def main(argv):
                                                 #  run_step_config['is_use_world_edge'],
                                                 )
     
-    loss_fn = eval(run_step_config['model']).loss_fn
+    if FLAGS.prebuild_graph:
+        loss_fn = eval(run_step_config['model']).loss_fn_alter
+    else:
+        loss_fn = eval(run_step_config['model']).loss_fn
 
     if last_run_dir is not None:
         last_run_step_dir = find_nth_latest_run_step(last_run_dir, 2)

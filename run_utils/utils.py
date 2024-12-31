@@ -160,13 +160,23 @@ def learner(model, loss_fn, run_step_config, device):
             # model will train itself with the whole dataset
             if run_step_config['use_hdf5']:
                 if run_step_config['batch_size'] > 1:
-                    ds_loader = datasets.get_dataloader_hdf5_batch(run_step_config['dataset_dir'],
-                                                        model=run_step_config['model'],
-                                                        split='train',
-                                                        shuffle=True,
-                                                        prefetch=run_step_config['prefetch'], 
-                                                        batch_size=run_step_config['batch_size'],
-                                                        add_noise_fn=add_noise_fn(model.noise_field, model.noise_scale, model.noise_gamma))
+                    if run_step_config['prebuild_graph'] == True:
+                        ds_loader = datasets.get_dataloader_hdf5_batch(run_step_config['dataset_dir'],
+                                                            model=run_step_config['model'],
+                                                            split='train',
+                                                            shuffle=True,
+                                                            prefetch=run_step_config['prefetch'], 
+                                                            batch_size=run_step_config['batch_size'],
+                                                            add_noise_fn=add_noise_fn(model.noise_field, model.noise_scale, model.noise_gamma),
+                                                            prebuild_graph_fn=model.build_graph)
+                    else:
+                        ds_loader = datasets.get_dataloader_hdf5_batch(run_step_config['dataset_dir'],
+                                                            model=run_step_config['model'],
+                                                            split='train',
+                                                            shuffle=True,
+                                                            prefetch=run_step_config['prefetch'], 
+                                                            batch_size=run_step_config['batch_size'],
+                                                            add_noise_fn=add_noise_fn(model.noise_field, model.noise_scale, model.noise_gamma))
                 else:
                     ds_loader = datasets.get_dataloader_hdf5(run_step_config['dataset_dir'],
                                                         model=run_step_config['model'],
@@ -185,10 +195,15 @@ def learner(model, loss_fn, run_step_config, device):
             # dry run
             if is_dry_run:
                 input = next(ds_iterator)[0]
-                for k in input:
-                    input[k]=input[k].to(device)
-
-                model(input, is_training = True, prebuild_graph = False)
+                if run_step_config['prebuild_graph']:
+                    input[0]=input[0].to(device)
+                    input[1]=input[1].to(device)
+                    input[2]=input[2].to(device)
+                    model(input[0], is_training = True, prebuild_graph = True)
+                else:
+                    for k in input:
+                        input[k]=input[k].to(device)
+                    model(input, is_training = True, prebuild_graph = False)
 
                 model.apply(init_weights)
                     
@@ -200,14 +215,18 @@ def learner(model, loss_fn, run_step_config, device):
                 input = input[0]
                 
                 if run_step_config['prebuild_graph']:
-                    graph = model.build_graph(input).to(device)
-                    out = model(graph, is_training = True, prebuild_graph = True)
+                    input[0]=input[0].to(device)
+                    input[1]=input[1].to(device)
+                    input[2]=input[2].to(device)
+                    out = model(input[0], is_training = True, prebuild_graph = True)
+
+                    loss = loss_fn(input[1],out,input[2],model)
                 else:
                     for k in input:
                         input[k]=input[k].to(device)
                     out = model(input, is_training = True, prebuild_graph = False)
                 
-                loss = loss_fn(input,out,model)
+                    loss = loss_fn(input,out,model)
 
                 if pass_count > 0:
                     pass_count -= 1
