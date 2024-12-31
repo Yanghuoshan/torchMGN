@@ -36,6 +36,10 @@ class Model(nn.Module):
             message_passing_steps=self.message_passing_steps,
             message_passing_aggregator=self.message_passing_aggregator,
             is_use_world_edge=is_use_world_edge)
+        
+        self.noise_scale = 0.003
+        self.noise_gamma = 1
+        self.noise_field = "world_pos"
 
     
     def graph_normalization(self, graph):
@@ -131,9 +135,9 @@ class Model(nn.Module):
         return (common.MultiGraph(node_features=node_features,
                                               edge_sets=[mesh_edges, world_edges]))
 
-    def forward(self, inputs, is_training, is_data_graph=False):
+    def forward(self, inputs, is_training, prebuild_graph=False):
         if is_training:
-            if not is_data_graph:
+            if not prebuild_graph:
                 inputs = self.build_graph(inputs)
             graph = self.graph_normalization(inputs)
             return self.learned_model(graph)
@@ -225,8 +229,7 @@ def loss_fn(inputs, network_output, model):
     scripted_node_mask = torch.stack([scripted_node_mask] * 3, dim=1)
     target_velocity = torch.where(scripted_node_mask, torch.tensor(0., device=device), target_velocity)'''
 
-    target_normalizer = model.get_output_normalizer()
-    target_normalized = target_normalizer(target)
+    target_normalized = model.get_output_normalizer()(target).to(network_output.device)
 
     '''node_type = inputs['node_type']
     scripted_node_mask = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.OBSTACLE.value], device=device))
@@ -236,7 +239,7 @@ def loss_fn(inputs, network_output, model):
     # build loss
     # print(network_output[187])
     node_type = inputs['node_type']
-    loss_mask = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.NORMAL.value], device=node_type.device).int())
+    loss_mask = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.NORMAL.value], device=network_output.device).int())
     # loss_mask = torch.logical_not(loss_mask)
     # loss_mask = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.OBSTACLE.value], device=device).int())
     # loss_mask = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.NORMAL.value], device=device).int())

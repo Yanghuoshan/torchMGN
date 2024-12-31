@@ -13,6 +13,7 @@ from matplotlib import pyplot as plt
 
 from dataset_utils import datasets 
 from model_utils.encode_process_decode import init_weights
+from model_utils.common import *
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 
@@ -164,41 +165,29 @@ def learner(model, loss_fn, run_step_config, device):
                                                         split='train',
                                                         shuffle=True,
                                                         prefetch=run_step_config['prefetch'], 
-                                                        batch_size=run_step_config['batch_size'],
-                                                        is_data_graph=run_step_config['is_data_graph'])
+                                                        batch_size=run_step_config['batch_size'])
                 else:
                     ds_loader = datasets.get_dataloader_hdf5(run_step_config['dataset_dir'],
                                                         model=run_step_config['model'],
                                                         split='train',
                                                         shuffle=True,
-                                                        prefetch=run_step_config['prefetch'], 
-                                                        is_data_graph=run_step_config['is_data_graph'])
+                                                        prefetch=run_step_config['prefetch'])
             else:
                 ds_loader = datasets.get_dataloader(run_step_config['dataset_dir'],
                                                     model=run_step_config['model'],
                                                     split='train',
                                                     shuffle=True,
-                                                    prefetch=run_step_config['prefetch'], 
-                                                    is_data_graph=run_step_config['is_data_graph'])
+                                                    prefetch=run_step_config['prefetch'])
             root_logger.info("Epoch " + str(epoch + 1) + "/" + str(run_step_config['epochs']))
             ds_iterator = iter(ds_loader)
 
             # dry run
             if is_dry_run:
-                if run_step_config['is_data_graph']:
-                    input = next(ds_iterator)
-                    graph =input[0][0].to(device)
-                    target = input[0][1].to(device)
-                    node_type = input[0][2].to(device)
+                input = next(ds_iterator)[0]
+                for k in input:
+                    input[k]=input[k].to(device)
 
-                    model(graph, is_training = True, is_data_graph = True)
-                    
-                else:
-                    input = next(ds_iterator)[0]
-                    for k in input:
-                        input[k]=input[k].to(device)
-
-                    model(input, is_training = True, is_data_graph = False)
+                model(input, is_training = True, prebuild_graph = False)
 
                 model.apply(init_weights)
                     
@@ -207,20 +196,18 @@ def learner(model, loss_fn, run_step_config, device):
             
             # start to train
             for input in ds_iterator:
-                if run_step_config['is_data_graph']:
-                    graph =input[0][0].to(device)
-                    target = input[0][1].to(device)
-                    node_type = input[0][2].to(device)
-
-                    out = model(graph, is_training = True, is_data_graph = True)
-                    loss = loss_fn(target,out,node_type,model)
+                input = input[0]
+                input = add_noise(input, model.noise_field, model.noise_scale, model.noise_gamma)
+                
+                if run_step_config['prebuild_graph']:
+                    graph = model.build_graph(input).to(device)
+                    out = model(graph, is_training = True, prebuild_graph = True)
                 else:
-                    input = input[0]
                     for k in input:
                         input[k]=input[k].to(device)
-
-                    out = model(input, is_training = True, is_data_graph = False)
-                    loss = loss_fn(input,out,model)
+                    out = model(input, is_training = True, prebuild_graph = False)
+                
+                loss = loss_fn(input,out,model)
 
                 if pass_count > 0:
                     pass_count -= 1

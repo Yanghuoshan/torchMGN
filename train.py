@@ -36,7 +36,7 @@ flags.DEFINE_string('output_dir','D:\\project_summary\\Graduation Project\\torch
 
 flags.DEFINE_string('datasets_dir','D:\\project_summary\\Graduation Project\\tmp\\datasets_np','path to datasets')
 flags.DEFINE_enum('dataset', 'flag_simple', ['deforming_plate','flag_simple'], 'Select dataset to run')
-flags.DEFINE_boolean('is_data_graph', False, 'is dataloader output graph')
+flags.DEFINE_boolean('prebuild_graph', False, 'is dataloader output graph')
 flags.DEFINE_integer('prefetch', 1, 'prefetch size')
 flags.DEFINE_integer('batch_size', 1, 'batch size')
 
@@ -106,7 +106,7 @@ def main(argv):
 
     run_step_config['batch_size'] = FLAGS.batch_size
     run_step_config['prefetch'] = FLAGS.prefetch
-    run_step_config['is_data_graph'] = FLAGS.is_data_graph
+    run_step_config['prebuild_graph'] = FLAGS.prebuild_graph
     run_step_config['gpu_id'] = FLAGS.gpu_id
 
     run_step_config['start_new_trained_step'] = FLAGS.start_new_trained_step
@@ -149,10 +149,8 @@ def main(argv):
                                                  run_step_config['message_passing_steps'],
                                                 #  run_step_config['is_use_world_edge'],
                                                 )
-    if FLAGS.is_data_graph:
-        loss_fn = eval(run_step_config['model']).loss_fn_alter
-    else:
-        loss_fn = eval(run_step_config['model']).loss_fn
+    
+    loss_fn = eval(run_step_config['model']).loss_fn
 
     if last_run_dir is not None:
         last_run_step_dir = find_nth_latest_run_step(last_run_dir, 2)

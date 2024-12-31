@@ -53,6 +53,10 @@ class Model(nn.Module):
             message_passing_aggregator=self.message_passing_aggregator,
             is_use_world_edge = is_use_world_edge)
         
+        self.noise_scale = 0.003
+        self.noise_gamma = 0.1
+        self.noise_field = "world_pos"
+        
 
     def graph_normalization(self, graph):
         new_node_features = self._node_normalizer(graph.node_features)
@@ -92,9 +96,9 @@ class Model(nn.Module):
 
         return (common.MultiGraph(node_features=node_features, edge_sets=[mesh_edges]))
 
-    def forward(self, inputs, is_training, is_data_graph=False):
+    def forward(self, inputs, is_training, prebuild_graph=False):
         if is_training:
-            if not is_data_graph:
+            if not prebuild_graph:
                 inputs = self.build_graph(inputs)
             graph = self.graph_normalization(inputs)
             return self.learned_model(graph)
@@ -170,13 +174,13 @@ def loss_fn(inputs, network_output, model):
     prev_position = prev_world_pos
     target_position = target_world_pos
     target_acceleration = target_position - 2 * cur_position + prev_position
-    target_normalized = model.get_output_normalizer()(target_acceleration)
+    target_normalized = model.get_output_normalizer()(target_acceleration).to(network_output.device)
 
     # build loss
     node_type = inputs['node_type']
-    loss_mask = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.NORMAL.value], device=node_type.device).int())
+    loss_mask = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.NORMAL.value], device=network_output.device).int())
     error = torch.sum((target_normalized - network_output) ** 2, dim=1)
-    loss = torch.mean(error[loss_mask])
+    loss = torch.mean(error[loss_mask])  
     return loss
 
 

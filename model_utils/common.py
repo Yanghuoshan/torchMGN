@@ -227,3 +227,22 @@ def build_graph_Cloth(inputs, rectangle=False):
             senders=senders)
 
         return (MultiGraph(node_features=node_features,edge_sets=[mesh_edges]))
+
+def add_noise(input, field, scale, gamma):
+    """
+    input = {
+        "world_pos":[...],
+        "mesh_pos":[...],
+        "node_type":[...],
+        ...
+    }
+    """
+    zero_size = torch.zeros(input[field].size(), dtype=torch.float32)
+    noise = torch.normal(zero_size, std=scale)
+    mask = torch.eq(input["node_type"][:,0],torch.tensor([NodeType.NORMAL.value]).int())
+    noise = torch.where(mask, noise, torch.zeros_like(noise))
+    input[field] += noise
+    input['target_'+field] += (1.0 - gamma) * noise
+    return input
+        
+
