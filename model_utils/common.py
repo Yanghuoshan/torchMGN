@@ -240,6 +240,8 @@ def add_noise(input, field, scale, gamma):
     zero_size = torch.zeros(input[field].size(), dtype=torch.float32)
     noise = torch.normal(zero_size, std=scale)
     mask = torch.eq(input["node_type"][:,0],torch.tensor([NodeType.NORMAL.value]).int())
+    mask = mask.unsqueeze(1)
+    mask = mask.repeat(1, noise.size(1) // mask.size(1))
     noise = torch.where(mask, noise, torch.zeros_like(noise))
     input[field] += noise
     input['target_'+field] += (1.0 - gamma) * noise
