@@ -257,11 +257,12 @@ class Cloth_trajectory_dataset(torch.utils.data.Dataset):
 
 
 class Cloth_single_dataset_hdf5(torch.utils.data.Dataset):
-    def __init__(self, path, is_data_graph = False):
+    def __init__(self, path, is_data_graph = False, add_noise_func = None):
         self.path = path
         self.meta = json.loads(open(os.path.join(path, 'metadata.json')).read())
         self.files = self.meta['files']
         self.num_samples = sum(self.files[f] - 2 for f in self.files)
+        self.add_noise_func = add_noise_func
 
         self.hdf5_dataset = h5py.File(os.path.join(path, 'dataset.h5'), 'r')
 
@@ -297,7 +298,7 @@ class Cloth_single_dataset_hdf5(torch.utils.data.Dataset):
         return self.return_item(data, sid)
     
     def return_dict(self, data, sid):
-        return dict(
+        new_dict =  dict(
             cells=torch.LongTensor(data['cells'][sid, ...]),
             node_type=torch.LongTensor(data['node_type'][sid, ...]),
             mesh_pos=torch.Tensor(data['mesh_pos'][sid, ...]),
@@ -305,7 +306,12 @@ class Cloth_single_dataset_hdf5(torch.utils.data.Dataset):
             prev_world_pos=torch.Tensor(data['world_pos'][sid, ...]),
             target_world_pos=torch.Tensor(data['world_pos'][sid + 2, ...])
         )
-
+        if self.add_noise_func is not None:
+            new_dict = self.add_noise_func(new_dict)
+        else:
+            return new_dict
+        
+        
     def return_graph(self, data, sid):
         d = dict(
             cells=torch.LongTensor(data['cells'][sid, ...]),
@@ -364,6 +370,7 @@ def graph_collate_fn(batch):
     # data = [graph, target, d['node_type']]
     # return [multi_graph_data]
 
+
 def dict_collate_fn(batch):
     """
     Collate datas which are dict type
@@ -386,15 +393,6 @@ def dict_collate_fn(batch):
     
     new_dict['ptr'] = ptr[:]
     return [new_dict]
-    # dict(
-    #         cells=torch.LongTensor(data['cells'][sid, ...]),
-    #         node_type=torch.LongTensor(data['node_type'][sid, ...]),
-    #         mesh_pos=torch.Tensor(data['mesh_pos'][sid, ...]),
-    #         world_pos=torch.Tensor(data['world_pos'][sid + 1, ...]),
-    #         prev_world_pos=torch.Tensor(data['world_pos'][sid, ...]),
-    #         target_world_pos=torch.Tensor(data['world_pos'][sid + 2, ...])
-    #     )
-
 
     
 def get_dataloader(path, 
@@ -470,18 +468,16 @@ def get_dataloader_hdf5_batch(path,
                    shuffle = True,
                    prefetch = 0,
                    batch_size = 2,
-                   is_data_graph = False):
+                   add_noise_fn = None):
     path = os.path.join(path,split)
     if model == "Cloth":
         Datasets = Cloth_single_dataset_hdf5
     else:
         raise ValueError("The dataset type doesn't exist.")
     
-    if is_data_graph:
-        collate_fn = graph_collate_fn
-    else:
-        collate_fn = dict_collate_fn
-    ds = Datasets(path, is_data_graph)
+    
+    collate_fn = dict_collate_fn
+    ds = Datasets(path, add_noise_fn)
     if prefetch == 0:
         return torch.utils.data.DataLoader(ds, batch_size=batch_size, shuffle = shuffle, collate_fn=collate_fn)
     return torch.utils.data.DataLoader(ds, batch_size=batch_size, shuffle = shuffle, prefetch_factor=prefetch, num_workers=8, pin_memory=True, collate_fn=collate_fn)

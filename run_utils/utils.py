@@ -165,7 +165,8 @@ def learner(model, loss_fn, run_step_config, device):
                                                         split='train',
                                                         shuffle=True,
                                                         prefetch=run_step_config['prefetch'], 
-                                                        batch_size=run_step_config['batch_size'])
+                                                        batch_size=run_step_config['batch_size'],
+                                                        add_noise_fn=add_noise_fn(model.noise_field, model.noise_scale, model.noise_gamma))
                 else:
                     ds_loader = datasets.get_dataloader_hdf5(run_step_config['dataset_dir'],
                                                         model=run_step_config['model'],
@@ -197,7 +198,6 @@ def learner(model, loss_fn, run_step_config, device):
             # start to train
             for input in ds_iterator:
                 input = input[0]
-                input = add_noise(input, model.noise_field, model.noise_scale, model.noise_gamma)
                 
                 if run_step_config['prebuild_graph']:
                     graph = model.build_graph(input).to(device)
