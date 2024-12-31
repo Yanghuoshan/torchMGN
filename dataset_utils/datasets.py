@@ -478,7 +478,7 @@ def get_dataloader_hdf5_batch(path,
     
     
     collate_fn = dict_collate_fn
-    ds = Datasets(path, add_noise_fn)
+    ds = Datasets(path, add_noise_func=add_noise_fn)
     if prefetch == 0:
         return torch.utils.data.DataLoader(ds, batch_size=batch_size, shuffle = shuffle, collate_fn=collate_fn)
     return torch.utils.data.DataLoader(ds, batch_size=batch_size, shuffle = shuffle, prefetch_factor=prefetch, num_workers=8, pin_memory=True, collate_fn=collate_fn)
