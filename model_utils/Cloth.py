@@ -174,7 +174,8 @@ def loss_fn(inputs, network_output, model):
     prev_position = prev_world_pos
     target_position = target_world_pos
     target_acceleration = target_position - 2 * cur_position + prev_position
-    target_normalized = model.get_output_normalizer()(target_acceleration).to(network_output.device)
+    target_acceleration = target_acceleration.to(network_output.device)
+    target_normalized = model.get_output_normalizer()(target_acceleration)
 
     # build loss
     node_type = inputs['node_type']

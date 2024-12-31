@@ -228,8 +228,8 @@ def loss_fn(inputs, network_output, model):
     scripted_node_mask = torch.logical_not(scripted_node_mask)
     scripted_node_mask = torch.stack([scripted_node_mask] * 3, dim=1)
     target_velocity = torch.where(scripted_node_mask, torch.tensor(0., device=device), target_velocity)'''
-
-    target_normalized = model.get_output_normalizer()(target).to(network_output.device)
+    target = target.to(network_output.device)
+    target_normalized = model.get_output_normalizer()(target)
 
     '''node_type = inputs['node_type']
     scripted_node_mask = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.OBSTACLE.value], device=device))
