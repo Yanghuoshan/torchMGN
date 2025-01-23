@@ -159,9 +159,8 @@ def learner(model, loss_fn, run_step_config, device):
         for epoch in range(run_step_config['epochs'])[trained_epoch:]:
             # model will train itself with the whole dataset
             if run_step_config['use_hdf5']:
-                if run_step_config['batch_size'] > 1:
-                    if run_step_config['prebuild_graph'] == True:
-                        ds_loader = datasets.get_dataloader_hdf5_batch(run_step_config['dataset_dir'],
+                if run_step_config['prebuild_graph'] == True:
+                    ds_loader = datasets.get_dataloader_hdf5_batch(run_step_config['dataset_dir'],
                                                             model=run_step_config['model'],
                                                             split='train',
                                                             shuffle=True,
@@ -169,20 +168,14 @@ def learner(model, loss_fn, run_step_config, device):
                                                             batch_size=run_step_config['batch_size'],
                                                             add_noise_fn=add_noise_fn(model.noise_field, model.noise_scale, model.noise_gamma),
                                                             prebuild_graph_fn=model.build_graph)
-                    else:
-                        ds_loader = datasets.get_dataloader_hdf5_batch(run_step_config['dataset_dir'],
+                else:
+                    ds_loader = datasets.get_dataloader_hdf5_batch(run_step_config['dataset_dir'],
                                                             model=run_step_config['model'],
                                                             split='train',
                                                             shuffle=True,
                                                             prefetch=run_step_config['prefetch'], 
                                                             batch_size=run_step_config['batch_size'],
                                                             add_noise_fn=add_noise_fn(model.noise_field, model.noise_scale, model.noise_gamma))
-                else:
-                    ds_loader = datasets.get_dataloader_hdf5(run_step_config['dataset_dir'],
-                                                        model=run_step_config['model'],
-                                                        split='train',
-                                                        shuffle=True,
-                                                        prefetch=run_step_config['prefetch'])
             else:
                 ds_loader = datasets.get_dataloader(run_step_config['dataset_dir'],
                                                     model=run_step_config['model'],

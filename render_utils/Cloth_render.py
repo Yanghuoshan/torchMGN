@@ -84,3 +84,4 @@ def render(trajectory, skip=1):
 
     anim = animation.FuncAnimation(fig, animate, frames=num_frames, interval=100)
     plt.show(block=True)
+    return anim

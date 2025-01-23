@@ -23,7 +23,6 @@ class Model(nn.Module):
         # self._node_dynamic_normalizer = normalization.Normalizer(size=1, name='node_dynamic_normalizer')# NOT USED ACTUALLY
         self._mesh_edge_normalizer = normalization.Normalizer(size=8, name='mesh_edge_normalizer')
         self._world_edge_normalizer = normalization.Normalizer(size=4, name='world_edge_normalizer') 
-        self._displacement_base = None
 
         self.message_passing_steps = message_passing_steps
         self.message_passing_aggregator = message_passing_aggregator
@@ -73,8 +72,13 @@ class Model(nn.Module):
         radius = 0.03
         pre_i = ptr[0]
         world_connection_matrix = torch.zeros_like(world_distance_matrix, dtype=torch.bool)
+
+        world_connection_segment = torch.zeros_like(world_distance_matrix, dtype=torch.bool)
+
         for next_i in ptr[1:]:
-            world_connection_segment = torch.zeros_like(world_distance_matrix, dtype=torch.bool)[pre_i:next_i,pre_i:next_i]=True
+            world_connection_segment[:,:] = False
+
+            world_connection_segment = world_connection_segment[pre_i:next_i,pre_i:next_i]=True
 
             world_connection_segment = torch.where((world_distance_matrix < radius) & world_connection_segment, True, False)
 
