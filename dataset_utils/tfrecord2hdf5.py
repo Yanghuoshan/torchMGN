@@ -30,8 +30,6 @@ train.h5 = {ex0:dict, ex1:dict, ...}
 
 """
 
-tf._logging
-
 FLAGS = flags.FLAGS
 flags.DEFINE_string('in_dir', '../tmp/datasets/', 'Input datasets directory')
 flags.DEFINE_string('out_dir', '../tmp/datasets_hdf5/','Output numpy datasets directory')

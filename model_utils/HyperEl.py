@@ -73,18 +73,20 @@ class Model(nn.Module):
         pre_i = ptr[0]
         world_connection_matrix = torch.zeros_like(world_distance_matrix, dtype=torch.bool)
 
-        world_connection_segment = torch.zeros_like(world_distance_matrix, dtype=torch.bool)
+        # world_connection_segment = torch.zeros_like(world_distance_matrix, dtype=torch.bool)
 
-        for next_i in ptr[1:]:
-            world_connection_segment[:,:] = False
+        # for next_i in ptr[1:]:
+        #     world_connection_segment[:,:] = False
 
-            world_connection_segment = world_connection_segment[pre_i:next_i,pre_i:next_i]=True
+        #     world_connection_segment = world_connection_segment[pre_i:next_i,pre_i:next_i]=True
 
-            world_connection_segment = torch.where((world_distance_matrix < radius) & world_connection_segment, True, False)
+        #     world_connection_segment = torch.where((world_distance_matrix < radius) & world_connection_segment, True, False)
 
-            world_connection_matrix = world_connection_matrix | world_connection_segment
+        #     world_connection_matrix = world_connection_matrix | world_connection_segment
 
-            pre_i = next_i
+        #     pre_i = next_i
+
+        world_connection_matrix = torch.where(world_distance_matrix < radius, True, False)
 
         # remove self connection
         world_connection_matrix = world_connection_matrix.fill_diagonal_(False)
