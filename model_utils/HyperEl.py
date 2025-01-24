@@ -59,7 +59,7 @@ class Model(nn.Module):
 
         cells = inputs['cells']
 
-        ptr = inputs['ptr']
+        # ptr = inputs['ptr']
 
         senders, receivers = common.triangles_to_edges(cells, rectangle=True)
 
@@ -70,7 +70,7 @@ class Model(nn.Module):
         world_distance_matrix = torch.cdist(world_pos, world_pos, p=2)
 
         radius = 0.03
-        pre_i = ptr[0]
+        # pre_i = ptr[0]
         world_connection_matrix = torch.zeros_like(world_distance_matrix, dtype=torch.bool)
 
         # world_connection_segment = torch.zeros_like(world_distance_matrix, dtype=torch.bool)
