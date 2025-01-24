@@ -86,7 +86,7 @@ class Model(nn.Module):
 
         #     pre_i = next_i
 
-        world_connection_matrix = torch.where(world_distance_matrix < radius, True, False)
+        world_connection_matrix = world_distance_matrix < radius
 
         # remove self connection
         world_connection_matrix = world_connection_matrix.fill_diagonal_(False)

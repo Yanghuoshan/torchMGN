@@ -93,6 +93,7 @@ def log_run_summary(root_logger, run_step_config, run_step_dir):
     root_logger.info("Core model is " + run_step_config['core_model'])
     root_logger.info("Message passing aggregator is " + run_step_config['message_passing_aggregator'])
     root_logger.info("Message passing steps are " + str(run_step_config['message_passing_steps']))
+    root_logger.info("Graphs prebuilding is " + str(run_step_config['prebuild_graph']))
     
     root_logger.info("Run output directory is " + run_step_dir)
     root_logger.info("=========================================================")
