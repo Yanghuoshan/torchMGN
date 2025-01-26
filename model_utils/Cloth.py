@@ -34,7 +34,7 @@ from dataclasses import replace
 class Model(nn.Module):
     """Model for static cloth simulation."""
 
-    def __init__(self, output_size, message_passing_aggregator='sum', message_passing_steps=15, is_use_world_edge=False):
+    def __init__(self, output_size, message_passing_aggregator='sum', message_passing_steps=15, is_use_world_edge=False, mesh_type=0):
         super(Model, self).__init__()
         self._output_normalizer = normalization.Normalizer(size=3, name='output_normalizer')
         self._node_normalizer = normalization.Normalizer(size=3 + common.NodeType.SIZE, name='node_normalizer')
@@ -44,6 +44,8 @@ class Model(nn.Module):
 
         self.message_passing_steps = message_passing_steps
         self.message_passing_aggregator = message_passing_aggregator
+
+        self.mesh_type = mesh_type
         
         self.learned_model = encode_process_decode.EncodeProcessDecode(
             output_size=output_size,
@@ -56,6 +58,7 @@ class Model(nn.Module):
         self.noise_scale = 0.003
         self.noise_gamma = 0.1
         self.noise_field = "world_pos"
+
         
 
     def graph_normalization(self, graph):
@@ -75,7 +78,7 @@ class Model(nn.Module):
         node_features = torch.cat((inputs['world_pos'] - inputs['prev_world_pos'], F.one_hot(inputs['node_type'][:, 0].to(torch.int64), common.NodeType.SIZE)), dim=-1)
 
         cells = inputs['cells']
-        senders, receivers = common.triangles_to_edges(cells)
+        senders, receivers = common.triangles_to_edges(cells, type=self.mesh_type)
 
         mesh_pos = inputs['mesh_pos']
         relative_world_pos = (torch.index_select(input=inputs['world_pos'], dim=0, index=senders) -

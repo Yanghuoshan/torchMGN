@@ -18,7 +18,7 @@ import h5pickle as h5py
 
 from tqdm import trange
 
-from model_utils.common import build_graph_HyperEl, build_graph_Cloth
+from model_utils.common import build_graph_HyperEl, build_graph_Cloth, NodeType
 
 from dataclasses import replace
 
@@ -341,13 +341,15 @@ class Cloth_single_dataset_hdf5(torch.utils.data.Dataset):
     
 
 class HyperEl_single_dataset_hdf5(torch.utils.data.Dataset):
-    def __init__(self, path, prebuild_graph_fn = None, add_noise_fn = None):
+    def __init__(self, path, prebuild_graph_fn = None, add_noise_fn = None, alter=True):
         self.path = path
         self.meta = json.loads(open(os.path.join(path, 'metadata.json')).read())
         self.files = self.meta['files']
         self.num_samples = sum(self.files[f] - 1 for f in self.files)
         self.add_noise_fn = add_noise_fn
         self.prebuild_graph_fn = prebuild_graph_fn
+
+        self.alter=alter # 当alter为true时，障碍物取下一时刻作为输入
 
         self.hdf5_dataset = h5py.File(os.path.join(path, 'dataset.h5'), 'r')
 
@@ -391,6 +393,11 @@ class HyperEl_single_dataset_hdf5(torch.utils.data.Dataset):
             target_world_pos=torch.Tensor(data['world_pos'][sid + 1, ...]),
             stress=torch.Tensor(data['stress'][sid, ...])
         )
+
+        # if self.alter:
+        #     value = NodeType.OBSTACLE
+        #     indices = torch.nonzero(new_dict["node_type"].squeeze() == value).squeeze()
+        #     new_dict["world_pos"][indices] = torch.Tensor(data['world_pos'][sid + 10, ...][indices])
         
         if self.add_noise_fn is not None:
             new_dict = self.add_noise_fn(new_dict)    
@@ -407,6 +414,11 @@ class HyperEl_single_dataset_hdf5(torch.utils.data.Dataset):
             target_world_pos=torch.Tensor(data['world_pos'][sid + 1, ...]),
             stress=torch.Tensor(data['stress'][sid, ...])
         )
+        # if self.alter:
+        #     value = NodeType.OBSTACLE
+        #     indices = torch.nonzero(new_dict["node_type"].squeeze() == value).squeeze()
+        #     new_dict["world_pos"][indices] = torch.Tensor(data['world_pos'][sid + 10, ...][indices])
+
         if self.add_noise_fn is not None:
             new_dict = self.add_noise_fn(new_dict)   
              
@@ -587,7 +599,7 @@ if __name__ == "__main__":
     use_h5 = True
     print(f'prefetch: {prefetch}, is_graph: {is_graph}, is_useh5: {use_h5}')
     if use_h5:
-        dl = get_dataloader_hdf5_batch("D:\project_summary\Graduation Project\\tmp\datasets_hdf5\\deforming_plate",model="HyperEl",split="train",prefetch=prefetch,batch_size=2)
+        dl = get_dataloader_hdf5_batch("D:\project_summary\Graduation Project\\tmp\datasets_hdf5\\deforming_plate",model="HyperEl",split="train",prefetch=prefetch,batch_size=1,shuffle=False)
     else:
         dl = get_dataloader("D:\project_summary\Graduation Project\\tmp\datasets_np\\flag_simple",model="Cloth",split="train",prefetch=prefetch)
     dl = iter(dl)
@@ -595,6 +607,7 @@ if __name__ == "__main__":
     # for _ in range(100):
     #     next(dl)
     end_time = time.time()
+    
     a = next(dl)[0]
     print(a['node_type'])
     
@@ -608,30 +621,32 @@ if __name__ == "__main__":
     import numpy as np
     os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
 
-    points = a['world_pos']
-    x = points[:, 0].numpy().astype(float)
-    y = points[:, 1].numpy().astype(float)
-    z = points[:, 2].numpy().astype(float)
-    types = a['node_type'].numpy()
-    # 定义颜色映射
-    colors = ['r','g','b','c','m','y','k']
-    print(types)
-    point_colors = [colors[t[0]] for t in types]
+    for _ in range(40):
+        a = next(dl)[0]
+        points = a['world_pos']
+        x = points[:, 0].numpy().astype(float)
+        y = points[:, 1].numpy().astype(float)
+        z = points[:, 2].numpy().astype(float)
+        types = a['node_type'].numpy()
+        # 定义颜色映射
+        colors = ['c','m','y','k','r','b','g']
+        print(types)
+        point_colors = [colors[t[0]] for t in types]
+    
+        # 创建三维图像
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
 
-    # 创建三维图像
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
+        # 绘制点
+        ax.scatter(x, y, z, c=point_colors, marker='o')
 
-    # 绘制点
-    ax.scatter(x, y, z, c=point_colors, marker='o')
+        # 设置标签
+        ax.set_xlabel('X 轴')
+        ax.set_ylabel('Y 轴')
+        ax.set_zlabel('Z 轴')
 
-    # 设置标签
-    ax.set_xlabel('X 轴')
-    ax.set_ylabel('Y 轴')
-    ax.set_zlabel('Z 轴')
-
-    # 显示图像
-    plt.show()
+        # 显示图像
+        plt.show()
 
 
 

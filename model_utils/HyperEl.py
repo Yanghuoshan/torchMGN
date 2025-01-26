@@ -15,7 +15,7 @@ from dataclasses import replace
 class Model(nn.Module):
     """Model for static cloth simulation."""
 
-    def __init__(self, output_size, message_passing_aggregator='sum', message_passing_steps=15, is_use_world_edge=True, device='cuda'):
+    def __init__(self, output_size, message_passing_aggregator='sum', message_passing_steps=15, is_use_world_edge=True, mesh_type=2):
         super(Model, self).__init__()
         self._output_normalizer = normalization.Normalizer(size=output_size, name='output_normalizer')
         # self._stress_output_normalizer = normalization.Normalizer(size=3, name='stress_output_normalizer')# NOT USED ACTUALLY
@@ -26,6 +26,8 @@ class Model(nn.Module):
 
         self.message_passing_steps = message_passing_steps
         self.message_passing_aggregator = message_passing_aggregator
+
+        self.mesh_type = mesh_type
 
         
         self.learned_model = encode_process_decode.EncodeProcessDecode(
@@ -61,7 +63,7 @@ class Model(nn.Module):
 
         # ptr = inputs['ptr']
 
-        senders, receivers = common.triangles_to_edges(cells, rectangle=True)
+        senders, receivers = common.triangles_to_edges(cells, type=self.mesh_type)
 
 
         # find world edge

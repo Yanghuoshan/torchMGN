@@ -34,7 +34,9 @@ class NodeType(enum.IntEnum):
     INFLOW = 4
     OUTFLOW = 5
     WALL_BOUNDARY = 6
+    INITIATIVE = 7
     SIZE = 9
+
 
 @dataclass
 class EdgeSet:
@@ -61,9 +63,9 @@ class MultiGraph:
         return self
 
 
-def triangles_to_edges(faces, rectangle=False):
-    """Computes mesh two ways edges from triangles and rectangles."""
-    if not rectangle:
+def triangles_to_edges(faces, type=0):
+    """Computes mesh two ways edges from triangles 0, rectangles 1 or tetrahedra 2"""
+    if type==0:
         # collect edges from triangles
         edges = torch.cat((faces[:, 0:2],
                            faces[:, 1:3],
@@ -81,7 +83,7 @@ def triangles_to_edges(faces, rectangle=False):
         # receivers = receivers.to(torch.int64)
 
         return torch.cat((senders, receivers), dim=0), torch.cat((receivers, senders), dim=0)
-    else:
+    elif type==1:
         edges = torch.cat((faces[:, 0:2],
                            faces[:, 1:3],
                            faces[:, 2:4],
@@ -97,6 +99,21 @@ def triangles_to_edges(faces, rectangle=False):
         senders, receivers = torch.unbind(edges, dim=1)
         # senders = senders.to(torch.int64)
         # receivers = receivers.to(torch.int64)
+
+        return torch.cat((senders, receivers), dim=0), torch.cat((receivers, senders), dim=0)
+    else:
+        edges = torch.cat((faces[:, [0, 1]],
+                           faces[:, [0, 2]],
+                           faces[:, [0, 3]],
+                           faces[:, [1, 2]],
+                           faces[:, [1, 3]],
+                           faces[:, [2, 3]]), dim=0)
+        receivers, _ = torch.min(edges, dim=1)
+        senders, _ = torch.max(edges, dim=1)
+
+        edges = torch.stack((senders, receivers), dim=1)
+        edges = torch.unique(edges, return_inverse=False, return_counts=False, dim=0)
+        senders, receivers = torch.unbind(edges, dim=1)
 
         return torch.cat((senders, receivers), dim=0), torch.cat((receivers, senders), dim=0)
     
