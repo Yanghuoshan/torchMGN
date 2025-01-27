@@ -1,6 +1,7 @@
 import sys
 import os
 import pathlib
+import gc
 from pathlib import Path
 import logging
 import time
@@ -130,6 +131,7 @@ def learner(model, loss_fn, run_step_config, device):
     running_loss = 0.0
     trained_epoch = 0
     trained_step = 0
+    scheduler_flag = True
 
     if run_step_config['last_run_dir'] is not None:
         optimizer.load_state_dict(torch.load(os.path.join(run_step_config['last_run_step_dir'], 'checkpoint', "optimizer_checkpoint.pth")))
@@ -249,11 +251,17 @@ def learner(model, loss_fn, run_step_config, device):
                 if (step+1) >= run_step_config['max_steps']:
                     not_reached_max_steps = False
                     break
+
+                # Adjust the lr when the training step is larger then 0.6*max_steps
+                if ((step+1) > (run_step_config['max_steps']*0.6)) and scheduler_flag:
+                    scheduler.step()
+                    root_logger.info("Call scheduler in step " + str(step + 1))
+                    scheduler_flag = False
                 
                 # memory cleaning
-                # if step % 100 == 0:
-                #     gc.collect()
-                #     torch.cuda.empty_cache()
+                if ((step+1) % 10000) == 0:
+                    gc.collect()
+                    torch.cuda.empty_cache()
 
                 step += 1
 
@@ -264,9 +272,9 @@ def learner(model, loss_fn, run_step_config, device):
             # Save the model state between epochs
             save_checkpoint(model, optimizer, scheduler, step, losses, run_step_config)
             
-            if epoch == 3:
-                scheduler.step()
-                root_logger.info("Call scheduler in epoch " + str(epoch + 1))
+            # if epoch == 3:
+            #     scheduler.step()
+            #     root_logger.info("Call scheduler in epoch " + str(epoch + 1))
 
     # Save the model state in the end
     save_checkpoint(model, optimizer, scheduler, step, losses, run_step_config)
