@@ -107,13 +107,13 @@ def show_loss_graph(losses, save_path):
     plt.savefig(os.path.join(save_path,"train_loss.png"))
 
 
-def save_checkpoint(model, optimizer, scheduler, step, losses, run_step_config):
+def save_checkpoint(model, optimizer, scheduler, epoch, step, losses, run_step_config):
     # save checkpoint to prevent interruption
     model.save_model(os.path.join(run_step_config['checkpoint_dir'], f"model_checkpoint"))
     torch.save(optimizer.state_dict(), os.path.join(run_step_config['checkpoint_dir'], f"optimizer_checkpoint.pth"))
     torch.save(scheduler.state_dict(), os.path.join(run_step_config['checkpoint_dir'], f"scheduler_checkpoint.pth"))
     # save the steps that have been already trained
-    torch.save({'trained_step': step}, os.path.join(run_step_config['checkpoint_dir'], "step_checkpoint.pth"))
+    torch.save({'trained_epoch': epoch,'trained_step': step}, os.path.join(run_step_config['checkpoint_dir'], "epoch_n_step_checkpoint.pth"))
     # save the previous losses
     torch.save({'losses': losses}, os.path.join(run_step_config['checkpoint_dir'], "losses_checkpoint.pth"))
 
@@ -135,6 +135,7 @@ def learner(model, loss_fn, run_step_config, device):
         optimizer.load_state_dict(torch.load(os.path.join(run_step_config['last_run_step_dir'], 'checkpoint', "optimizer_checkpoint.pth")))
         scheduler.load_state_dict(torch.load(os.path.join(run_step_config['last_run_step_dir'], 'checkpoint', "scheduler_checkpoint.pth")))
         trained_step = torch.load(os.path.join(run_step_config['last_run_step_dir'], 'checkpoint', "step_checkpoint.pth"))['trained_step'] + 1
+        trained_epoch = torch.load(os.path.join(run_step_config['last_run_step_dir'], 'checkpoint', "step_checkpoint.pth"))['trained_epoch']
         losses = torch.load(os.path.join(run_step_config['last_run_step_dir'], 'checkpoint', "losses_checkpoint.pth"))['losses'][:]
         root_logger.info("Loaded optimizer, scheduler and model epoch checkpoint\n")
 
@@ -147,7 +148,9 @@ def learner(model, loss_fn, run_step_config, device):
     # run the left steps or not
     not_reached_max_steps = True
     step = 0
+    start_epoch = 0
     if run_step_config['last_run_dir'] is not None and not run_step_config['start_new_trained_step']:
+        start_epoch = trained_epoch
         step = trained_step
     
     # dry run for lazy linear layers initialization
@@ -157,7 +160,7 @@ def learner(model, loss_fn, run_step_config, device):
         root_logger.info("No Dry run")
 
     while not_reached_max_steps:
-        for epoch in range(run_step_config['epochs'])[trained_epoch:]:
+        for epoch in range(run_step_config['epochs'])[start_epoch:]:
             # model will train itself with the whole dataset
             if run_step_config['use_hdf5']:
                 if run_step_config['prebuild_graph'] == True:
