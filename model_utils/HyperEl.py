@@ -90,7 +90,15 @@ class Model(nn.Module):
         world_connection_matrix = (world_distance_matrix < radius).to_sparse()
 
         # remove self connection
-        world_connection_matrix = world_connection_matrix.fill_diagonal_(False)
+        # world_connection_matrix = world_connection_matrix.fill_diagonal_(False)
+        indices = world_connection_matrix._indices()
+        values = world_connection_matrix._values()
+
+        diag_indices = (indices[0] == indices[1]).nonzero(as_tuple=True)[0]
+
+        values[diag_indices] = 0
+
+        world_connection_matrix = torch.sparse_coo_tensor(indices, values, world_connection_matrix.size())
 
         # remove world edge node pairs that already exist in mesh edge collection
         world_connection_matrix[senders, receivers] = torch.tensor(False, dtype=torch.bool, device=senders.device)
