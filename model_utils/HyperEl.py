@@ -73,6 +73,7 @@ class Model(nn.Module):
 
         radius = 0.03
         # pre_i = ptr[0]
+        # world_connection_matrix = torch.zeros_like(world_distance_matrix, dtype=torch.bool)
 
         # world_connection_segment = torch.zeros_like(world_distance_matrix, dtype=torch.bool)
 
@@ -87,24 +88,16 @@ class Model(nn.Module):
 
         #     pre_i = next_i
 
-        world_connection_matrix = (world_distance_matrix < radius).to_sparse()
+        world_connection_matrix = world_distance_matrix < radius
 
         # remove self connection
-        # world_connection_matrix = world_connection_matrix.fill_diagonal_(False)
-        indices = world_connection_matrix._indices()
-        values = world_connection_matrix._values()
-
-        diag_indices = (indices[0] == indices[1]).nonzero(as_tuple=True)[0]
-
-        values[diag_indices] = 0
-
-        world_connection_matrix = torch.sparse_coo_tensor(indices, values, world_connection_matrix.size())
+        world_connection_matrix = world_connection_matrix.fill_diagonal_(False)
 
         # remove world edge node pairs that already exist in mesh edge collection
         world_connection_matrix[senders, receivers] = torch.tensor(False, dtype=torch.bool, device=senders.device)
 
         # print(world_senders.shape[0])
-        world_senders, world_receivers = world_connection_matrix.coalesce().indices()
+        world_senders, world_receivers = torch.nonzero(world_connection_matrix, as_tuple=True)
 
         relative_world_pos = (torch.index_select(input=world_pos, dim=0, index=world_receivers) -
                               torch.index_select(input=world_pos, dim=0, index=world_senders))
