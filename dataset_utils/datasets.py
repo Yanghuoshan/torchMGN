@@ -426,13 +426,13 @@ class HyperEl_single_dataset_hdf5(torch.utils.data.Dataset):
 
         world_pos = new_dict['world_pos']
         target_world_pos = new_dict['target_world_pos']
-        target_stress = new_dict['stress']
+        # target_stress = new_dict['stress']
 
         cur_position = world_pos
         target_position = target_world_pos
         target = target_position - cur_position
 
-        target = torch.concat((target, target_stress), dim=1) 
+        # target = torch.concat((target, target_stress), dim=1) 
 
         return [graph, target, new_dict['node_type']]
 

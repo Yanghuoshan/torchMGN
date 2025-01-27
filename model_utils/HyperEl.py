@@ -173,7 +173,7 @@ class Model(nn.Module):
         velocity = self._output_normalizer.inverse(torch.where(output_mask, per_node_network_output, torch.tensor(0., device=device)))'''
         output = self._output_normalizer.inverse(per_node_network_output)
         velocity = output[...,0:3]
-        stress = output[...,3]
+        # stress = output[...,3]
 
         node_type = inputs['node_type']
         '''scripted_node_mask = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.OBSTACLE.value], device=device))
@@ -183,7 +183,7 @@ class Model(nn.Module):
         cur_position = inputs['world_pos']
         position = cur_position + velocity
         # position = torch.where(scripted_node_mask, position + inputs['target|world_pos'] - inputs['world_pos'], position)
-        return (position, cur_position, velocity, stress)
+        return (position, cur_position, velocity)
 
     def get_output_normalizer(self):
         return self._output_normalizer
@@ -224,14 +224,15 @@ def loss_fn(inputs, network_output, model):
     
     world_pos = inputs['world_pos']
     target_world_pos = inputs['target_world_pos']
-    target_stress = inputs['stress']
+    # target_stress = inputs['stress']
     
 
     cur_position = world_pos
     target_position = target_world_pos
     target_velocity = target_position - cur_position
 
-    target = torch.concat((target_velocity, target_stress), dim=1)
+    # target = torch.concat((target_velocity, target_stress), dim=1)
+    target = target_velocity
     '''scripted_node_mask = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.NORMAL.value], device=device))
     scripted_node_mask = torch.logical_not(scripted_node_mask)
     scripted_node_mask = torch.stack([scripted_node_mask] * 3, dim=1)
