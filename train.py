@@ -153,7 +153,10 @@ def main(argv):
                                                  run_step_config['message_passing_steps'],
                                                 #  run_step_config['is_use_world_edge'],
                                                 )
-    
+    run_step_config['noise_scale'] = model.noise_scale
+    run_step_config['noise_gamma'] = model.noise_gamma
+    run_step_config['noise_field'] = model.noise_field
+    run_step_config['build_graph'] = model.build_graph
     
     if FLAGS.prebuild_graph:
         loss_fn = eval(run_step_config['model']).loss_fn_alter
