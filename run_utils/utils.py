@@ -259,9 +259,9 @@ def learner(model, loss_fn, run_step_config, device):
                     scheduler_flag = False
                 
                 # memory cleaning
-                if ((step+1) % 1000) == 0:
-                    gc.collect()
-                    torch.cuda.empty_cache()
+                # if ((step+1) % 1000) == 0:
+                #     gc.collect()
+                #     torch.cuda.empty_cache()
 
                 step += 1
 
