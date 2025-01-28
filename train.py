@@ -170,7 +170,7 @@ def main(argv):
     if run_step_config['gpu_num'] == 1:
         model.to(device)
     else:
-        model = torch.nn.DataParallel(model, device_ids=list(run_step_config['gpu_num']))
+        model = torch.nn.DataParallel(model, device_ids=list(range(run_step_config['gpu_num'])))
 
     # run summary
     log_run_summary(root_logger, run_step_config, run_step_dir)
