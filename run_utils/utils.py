@@ -245,7 +245,7 @@ def learner(model, loss_fn, run_step_config, device):
 
                 # Save the model state between steps
                 if (step + 1- fixed_pass_count) % run_step_config['nsave_steps'] == 0:
-                    save_checkpoint(model, optimizer, scheduler, step, losses, run_step_config)
+                    save_checkpoint(model, optimizer, scheduler, epoch, step, losses, run_step_config)
                 
                 # Break if step reaches the maximun
                 if (step+1) >= run_step_config['max_steps']:
