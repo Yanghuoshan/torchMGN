@@ -28,16 +28,10 @@ device = torch.device('cuda')
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 
-# PARAMETERS = {
-#     'deform': dict(noise=0.003, gamma=1.0, field='world_pos', history=False,
-#                   size=3, batch=2, model=HyperEl, evaluator=deform_eval, loss_type='deform',
-#                   stochastic_message_passing_used='False')
-# }
-# params = PARAMETERS['deform']
-# model = HyperEl.Model(4, message_passing_steps=7).to(device)
+
 last_run_step_dir = ''
 
-M = Cloth
+M = Cloth # HyperEl
 model = M.Model(3, message_passing_steps=7).to(device)
 # model.load_model(os.path.join(last_run_step_dir, 'checkpoint', "model_checkpoint"))
 
@@ -49,6 +43,7 @@ is_data_graph = False
 # dl = datasets.get_dataloader("D:\project_summary\Graduation Project\\tmp\datasets_np\\flag_simple",model="Cloth",is_data_graph=is_data_graph)
 # dl = iter(dl)
 if is_data_graph:
+    # dl = ... 
     loss_fn = M.loss_fn_alter
     input = next(dl)
     graph =input[0][0]

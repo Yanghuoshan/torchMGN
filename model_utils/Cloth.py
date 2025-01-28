@@ -199,7 +199,7 @@ def loss_fn_alter(target, network_output, node_type, model):
 
 def rollout(model, initial_state, num_steps):
     """
-    Rolls out a model trajectory.
+    Rolls out a trajectory.
     initial state: a dict of initial state
     """
     node_type = initial_state['node_type']

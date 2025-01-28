@@ -216,7 +216,7 @@ class Cloth_trajectory_dataset(torch.utils.data.Dataset):
         else:
             self.return_item = self.return_dict
 
-    def __len__(self): return self.num_samples
+    def __len__(self): return next(iter(self.files.items()))[1]
 
     def __getitem__(self, idx : int) -> dict:
         data = np.load(os.path.join(self.path, self.fname))
@@ -253,6 +253,64 @@ class Cloth_trajectory_dataset(torch.utils.data.Dataset):
         target = target_position - 2 * cur_position + prev_position
 
         return [graph, target, d['node_type']]
+
+
+class HyperEl_trajectory_dataset(torch.utils.data.Dataset):
+    def __init__(self, path, prebuild_graph_fn = None, trajectory_index = 0):
+        self.path = path
+        self.meta = json.loads(open(os.path.join(path, 'metadata.json')).read())
+        self.files = self.meta['files']
+        self.num_samples = sum(self.files[f] - 1 for f in self.files)
+        self.fname = list(self.files.keys())[trajectory_index]
+        self.prebuild_graph_fn = prebuild_graph_fn
+
+        self.hdf5_dataset = h5py.File(os.path.join(path, 'dataset.h5'), 'r')
+
+        if prebuild_graph_fn is not None:
+            self.return_item = self.return_graph
+        else:
+            self.return_item = self.return_dict
+
+
+    def __len__(self): return next(iter(self.files.items()))[1]
+
+    def __getitem__(self, idx : int) -> dict:
+        data = np.load(os.path.join(self.path, self.fname))
+        return self.return_item(data, idx)
+    
+    def return_dict(self, data, sid):
+        return dict(
+            cells=torch.LongTensor(data['cells'][sid, ...]),
+            node_type=torch.LongTensor(data['node_type'][sid, ...]),
+            mesh_pos=torch.Tensor(data['mesh_pos'][sid, ...]),
+            world_pos=torch.Tensor(data['world_pos'][sid, ...]),
+            target_world_pos=torch.Tensor(data['world_pos'][sid + 1, ...]),
+            stress=torch.Tensor(data['stress'][sid, ...])
+        )
+    
+    def return_graph(self, data, sid):
+        new_dict = dict(
+            cells=torch.LongTensor(data['cells'][sid, ...]),
+            node_type=torch.LongTensor(data['node_type'][sid, ...]),
+            mesh_pos=torch.Tensor(data['mesh_pos'][sid, ...]),
+            world_pos=torch.Tensor(data['world_pos'][sid, ...]),
+            target_world_pos=torch.Tensor(data['world_pos'][sid + 1, ...]),
+            stress=torch.Tensor(data['stress'][sid, ...])
+        ) 
+             
+        graph = self.prebuild_graph_fn(new_dict)
+
+        world_pos = new_dict['world_pos']
+        target_world_pos = new_dict['target_world_pos']
+        # target_stress = new_dict['stress']
+
+        cur_position = world_pos
+        target_position = target_world_pos
+        target = target_position - cur_position
+
+        # target = torch.concat((target, target_stress), dim=1) 
+
+        return [graph, target, new_dict['node_type']]
 
 
 
@@ -341,7 +399,7 @@ class Cloth_single_dataset_hdf5(torch.utils.data.Dataset):
     
 
 class HyperEl_single_dataset_hdf5(torch.utils.data.Dataset):
-    def __init__(self, path, prebuild_graph_fn = None, add_noise_fn = None, alter=True):
+    def __init__(self, path, prebuild_graph_fn = None, add_noise_fn = None):
         self.path = path
         self.meta = json.loads(open(os.path.join(path, 'metadata.json')).read())
         self.files = self.meta['files']
@@ -349,7 +407,7 @@ class HyperEl_single_dataset_hdf5(torch.utils.data.Dataset):
         self.add_noise_fn = add_noise_fn
         self.prebuild_graph_fn = prebuild_graph_fn
 
-        self.alter=alter # 当alter为true时，障碍物取下一时刻作为输入
+        # self.alter=alter # 当alter为true时，障碍物取下一时刻作为输入
 
         self.hdf5_dataset = h5py.File(os.path.join(path, 'dataset.h5'), 'r')
 
@@ -376,7 +434,7 @@ class HyperEl_single_dataset_hdf5(torch.utils.data.Dataset):
             else: sample_id -= (num_steps - 1)
         raise IndexError()
 
-    def __len__(self): return self.num_samples
+    def __len__(self): return next(iter(self.files.items()))[1]
 
     def __getitem__(self, idx : int) -> dict:
         fname, sid = self.idx_to_file(idx)

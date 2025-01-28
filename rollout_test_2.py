@@ -29,21 +29,16 @@ device = torch.device('cuda')
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 
-# PARAMETERS = {
-#     'deform': dict(noise=0.003, gamma=1.0, field='world_pos', history=False,
-#                   size=3, batch=2, model=HyperEl, evaluator=deform_eval, loss_type='deform',
-#                   stochastic_message_passing_used='False')
-# }
-# params = PARAMETERS['deform']
-# model = HyperEl.Model(4, message_passing_steps=7).to(device)
+
 last_run_dir = "D:\project_summary\Graduation Project\\torchMGN\output\Cloth\Thu-Jan--2-00-20-04-2025"
 last_run_step_dir = find_nth_latest_run_step(last_run_dir, 1)
 run_step_config = pickle_load(os.path.join(last_run_step_dir, 'log', 'config.pkl'))
 run_step_config['last_run_dir'] = last_run_dir
 run_step_config['last_run_step_dir'] = last_run_step_dir
+ds_dir = "D:\project_summary\Graduation Project\\tmp\datasets_np\\flag_simple"
 
-M = Cloth
-model = eval(run_step_config['model']).Model(run_step_config['output_size'], 
+M = eval(run_step_config['model'])
+model = M.Model(run_step_config['output_size'], 
                                                  run_step_config['message_passing_aggregator'],
                                                  run_step_config['message_passing_steps'],
                                                 )
@@ -59,8 +54,8 @@ render = Cloth_render.render
 is_data_graph = False
 
 
-dl = datasets.get_trajectory_dataloader("D:\project_summary\Graduation Project\\tmp\datasets_np\\flag_simple",
-                                        model="Cloth",
+dl = datasets.get_trajectory_dataloader(ds_dir,
+                                        model=run_step_config['model'],
                                         is_data_graph=is_data_graph, 
                                         trajectory_index=0)
 trajectory = iter(dl)
