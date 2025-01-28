@@ -26,7 +26,8 @@ import matplotlib
 import matplotlib.pyplot as plt
 from tqdm import trange
 
-
+os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0, 1"
 
 FLAGS = flags.FLAGS
 
@@ -45,7 +46,9 @@ flags.DEFINE_integer('epochs', 2, 'Num of training epochs')
 flags.DEFINE_integer('max_steps', 10 ** 6, 'Num of training steps')
 flags.DEFINE_integer('nsave_steps', int(5000), help='Number of steps at which to save the model.')
 
+# devices selection
 flags.DEFINE_integer('gpu_id', 0, help='choose which gpu to use')
+flags.DEFINE_integer('gpu_num', 1, help='choose how many gpus to use')
 
 # core model configuration
 flags.DEFINE_integer('output_size', 3, 'Num of output_size')
@@ -108,6 +111,7 @@ def main(argv):
     run_step_config['prefetch'] = FLAGS.prefetch
     run_step_config['prebuild_graph'] = FLAGS.prebuild_graph
     run_step_config['gpu_id'] = FLAGS.gpu_id
+    run_step_config['gpu_num'] = FLAGS.gpu_num
 
     run_step_config['start_new_trained_step'] = FLAGS.start_new_trained_step
 
@@ -150,6 +154,7 @@ def main(argv):
                                                 #  run_step_config['is_use_world_edge'],
                                                 )
     
+    
     if FLAGS.prebuild_graph:
         loss_fn = eval(run_step_config['model']).loss_fn_alter
     else:
@@ -162,7 +167,10 @@ def main(argv):
             "Loaded checkpoint file in " + str(
                 os.path.join(last_run_step_dir, 'checkpoint')) + " and starting retraining...")
         
-    model.to(device)
+    if run_step_config['gpu_num'] == 1:
+        model.to(device)
+    else:
+        model = torch.nn.DataParallel(model, device_ids=list(run_step_config['gpu_num']))
 
     # run summary
     log_run_summary(root_logger, run_step_config, run_step_dir)
