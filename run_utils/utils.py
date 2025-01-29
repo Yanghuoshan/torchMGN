@@ -209,9 +209,9 @@ def learner(model, loss_fn, run_step_config, device):
                 is_dry_run = False
                 root_logger.info("Dry run finished")
                 
-                if run_step_config['gpu_num'] >= 2:
-                    model = torch.nn.DataParallel(model, device_ids=list(range(run_step_config['gpu_num'])))
-                    root_logger.info("Use multigpu")
+                # if run_step_config['gpu_num'] >= 2:
+                #     model = torch.nn.DataParallel(model, device_ids=list(range(run_step_config['gpu_num'])))
+                #     root_logger.info("Use multigpu")
 
             # start to train
             for input in ds_iterator:
