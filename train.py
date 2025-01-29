@@ -170,11 +170,9 @@ def main(argv):
             "Loaded checkpoint file in " + str(
                 os.path.join(last_run_step_dir, 'checkpoint')) + " and starting retraining...")
         
-    if run_step_config['gpu_num'] == 1:
-        model.to(device)
-    else:
-        model.to(device)
-        model = torch.nn.DataParallel(model, device_ids=list(range(run_step_config['gpu_num'])))
+    
+    model.to(device)
+
 
     # run summary
     log_run_summary(root_logger, run_step_config, run_step_dir)
