@@ -170,7 +170,7 @@ def main(argv):
             "Loaded checkpoint file in " + str(
                 os.path.join(last_run_step_dir, 'checkpoint')) + " and starting retraining...")
         
-    if run_step_config['gpu_num'] == 1:
+    if run_step_config['gpu_num'] > 1:
         device = 'cuda'
     
     model.to(device)
