@@ -198,11 +198,11 @@ def learner(model, loss_fn, run_step_config, device):
                     input[0]=input[0].to(device)
                     input[1]=input[1].to(device)
                     input[2]=input[2].to(device)
-                    model(input[0], is_training = True, prebuild_graph = True)
+                    model(input[0], is_trainning = True, prebuild_graph = True)
                 else:
                     for k in input:
                         input[k]=input[k].to(device)
-                    model(input, is_training = True, prebuild_graph = False)
+                    model(input, is_trainning = True, prebuild_graph = False)
 
                 model.apply(init_weights)
                     
@@ -221,13 +221,13 @@ def learner(model, loss_fn, run_step_config, device):
                     input[0]=input[0].to(device)
                     input[1]=input[1].to(device)
                     input[2]=input[2].to(device)
-                    out = model(input[0], is_training = True, prebuild_graph = True)
+                    out = model(input[0], is_trainning = True, prebuild_graph = True)
 
                     loss = loss_fn(input[1],out,input[2],model)
                 else:
                     for k in input:
                         input[k]=input[k].to(device)
-                    out = model(input, is_training = True, prebuild_graph = False)
+                    out = model(input, is_trainning = True, prebuild_graph = False)
                 
                     loss = loss_fn(input,out,model)
 
@@ -256,7 +256,7 @@ def learner(model, loss_fn, run_step_config, device):
                     not_reached_max_steps = False
                     break
 
-                # Adjust the lr when the training step is larger then 0.6*max_steps
+                # Adjust the lr when the trainning step is larger then 0.6*max_steps
                 if ((step+1) > (run_step_config['max_steps']*0.6)) and scheduler_flag:
                     scheduler.step()
                     root_logger.info("Call scheduler in step " + str(step + 1))

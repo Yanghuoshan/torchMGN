@@ -99,8 +99,8 @@ class Model(nn.Module):
 
         return (common.MultiGraph(node_features=node_features, edge_sets=[mesh_edges]))
 
-    def forward(self, inputs, is_training, prebuild_graph=False):
-        if is_training:
+    def forward(self, inputs, is_trainning, prebuild_graph=False):
+        if is_trainning:
             if not prebuild_graph:
                 inputs = self.build_graph(inputs)
             graph = self.graph_normalization(inputs)
@@ -110,7 +110,7 @@ class Model(nn.Module):
             graph = self.graph_normalization(graph)
             return self._update(inputs, self.learned_model(graph))
         
-    def forward_with_graph(self, graph, is_training):
+    def forward_with_graph(self, graph, is_trainning):
         # graph features normalization
         # new_node_features = self._node_normalizer(graph.node_features)
         # new_mesh_edges = replace(graph.edge_sets[0],features = self._mesh_edge_normalizer(graph.edge_sets[0].features))
@@ -119,7 +119,7 @@ class Model(nn.Module):
 
         graph = self.graph_normalization(graph)
 
-        if is_training:
+        if is_trainning:
             return self.learned_model(graph)
 
     def _update(self, inputs, per_node_network_output):
@@ -211,7 +211,7 @@ def rollout(model, initial_state, num_steps):
         with torch.no_grad():
             prediction = model({**initial_state, # cells, node_type, mesh_pos
                                 'prev_world_pos': prev_pos,
-                                'world_pos': cur_pos}, is_training=False)
+                                'world_pos': cur_pos}, is_trainning=False)
 
         next_pos = torch.where(mask, prediction, cur_pos)
 

@@ -52,18 +52,22 @@ rollout = M.rollout
 render = Cloth_render.render
 
 is_data_graph = False
+steps = 399
 
 
 dl = datasets.get_trajectory_dataloader(ds_dir,
                                         model=run_step_config['model'],
                                         is_data_graph=is_data_graph, 
                                         trajectory_index=0)
-trajectory = iter(dl)
-init_state = next(trajectory)[0]
-for k in init_state:
-    init_state[k] = init_state[k].to(device)
-new_trajectory =rollout(model,init_state,1000)
-anim = render(new_trajectory, skip=5)
-anim.save('animation4.gif', writer='pillow')
+if run_step_config['model']=="Cloth":
+    trajectory = iter(dl)
+    init_state = next(trajectory)[0]
+    for k in init_state:
+        init_state[k] = init_state[k].to(device)
+    new_trajectory =rollout(model,init_state,399)
+    anim = render(new_trajectory, skip=5)
+    anim.save('animation4.gif', writer='pillow')
+elif run_step_config['model']=="HyperEl":
+    trajectory = iter(dl)
 
 
