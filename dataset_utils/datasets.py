@@ -735,7 +735,7 @@ def get_dataloader_hdf5_batch(path,
     elif model == "HyperEl":
         Datasets = HyperEl_single_dataset_hdf5
     elif model == "Easy_HyperEl":
-        Datasets == Easy_HyperEl_single_dataset_hdf5
+        Datasets = Easy_HyperEl_single_dataset_hdf5
     else:
         raise ValueError("The dataset type doesn't exist.")
     
