@@ -35,8 +35,8 @@ FLAGS = flags.FLAGS
 flags.DEFINE_enum('model', 'Cloth', ['HyperEl','Cloth'], 'Select model to run.')
 flags.DEFINE_string('output_dir','D:\\project_summary\\Graduation Project\\torchMGN\\','path to output_dir')
 
-flags.DEFINE_string('datasets_dir','D:\\project_summary\\Graduation Project\\tmp\\datasets_np','path to datasets')
-flags.DEFINE_enum('dataset', 'flag_simple', ['deforming_plate','flag_simple'], 'Select dataset to run')
+flags.DEFINE_string('datasets_dir','D:\\project_summary\\Graduation Project\\tmp\\datasets_hdf5','path to datasets')
+flags.DEFINE_enum('dataset', 'flag_simple', ['deforming_plate','flag_simple','my_dataset'], 'Select dataset to run')
 flags.DEFINE_boolean('prebuild_graph', False, 'is dataloader output graph')
 flags.DEFINE_integer('prefetch', 1, 'prefetch size')
 flags.DEFINE_integer('batch_size', 1, 'batch size')
