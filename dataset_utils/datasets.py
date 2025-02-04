@@ -434,7 +434,7 @@ class HyperEl_single_dataset_hdf5(torch.utils.data.Dataset):
             else: sample_id -= (num_steps - 1)
         raise IndexError()
 
-    def __len__(self): return next(iter(self.files.items()))[1]
+    def __len__(self): return self.num_samples
 
     def __getitem__(self, idx : int) -> dict:
         fname, sid = self.idx_to_file(idx)
@@ -531,7 +531,7 @@ class Easy_HyperEl_single_dataset_hdf5(torch.utils.data.Dataset):
             else: sample_id -= (num_steps - 1)
         raise IndexError()
 
-    def __len__(self): return next(iter(self.files.items()))[1]
+    def __len__(self): return self.num_samples
 
     def __getitem__(self, idx : int) -> dict:
         fname, sid = self.idx_to_file(idx)
@@ -758,13 +758,15 @@ if __name__ == "__main__":
     use_h5 = True
     print(f'prefetch: {prefetch}, is_graph: {is_graph}, is_useh5: {use_h5}')
     if use_h5:
-        dl = get_dataloader_hdf5_batch("D:\project_summary\Graduation Project\\tmp\datasets_hdf5\\deforming_plate",model="HyperEl",split="train",prefetch=prefetch,batch_size=1,shuffle=False)
+        dl = get_dataloader_hdf5_batch("D:\project_summary\Graduation Project\\tmp\datasets_hdf5\\my_dataset",model="Easy_HyperEl",split="train",prefetch=prefetch,batch_size=1,shuffle=False)
     else:
         dl = get_dataloader("D:\project_summary\Graduation Project\\tmp\datasets_np\\flag_simple",model="Cloth",split="train",prefetch=prefetch)
+    print(len(dl.dataset))
     # dl = iter(dl)
     # start_time = time.time()
-    # # for _ in range(100):
-    # #     next(dl)
+    # for i in range(1000):
+    #     print(i)
+    #     next(dl)
     # end_time = time.time()
     
     # a = next(dl)[0]
@@ -773,8 +775,8 @@ if __name__ == "__main__":
     # execution_time = (end_time - start_time)/100
     # print(f"运行时间: {execution_time} 秒")
 
-    ds = HyperEl_single_dataset_hdf5("D:\project_summary\Graduation Project\\tmp\datasets_hdf5\\deforming_plate\\train")
-    print(next(iter(ds))["node_type"].shape)
+    # ds = HyperEl_single_dataset_hdf5("D:\project_summary\Graduation Project\\tmp\datasets_hdf5\\deforming_plate\\train")
+    # print(next(iter(ds))["node_type"].shape)
 
     # 三维渲染
 
