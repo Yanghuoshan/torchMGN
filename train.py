@@ -32,7 +32,7 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "0, 1"
 FLAGS = flags.FLAGS
 
 # common run configuration
-flags.DEFINE_enum('model', 'Cloth', ['HyperEl','Cloth'], 'Select model to run.')
+flags.DEFINE_enum('model', 'Cloth', ['HyperEl','Cloth','Easy_HyperEl'], 'Select model to run.')
 flags.DEFINE_string('output_dir','D:\\project_summary\\Graduation Project\\torchMGN\\','path to output_dir')
 
 flags.DEFINE_string('datasets_dir','D:\\project_summary\\Graduation Project\\tmp\\datasets_hdf5','path to datasets')
