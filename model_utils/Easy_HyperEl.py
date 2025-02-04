@@ -21,8 +21,8 @@ class Model(nn.Module):
         # self._stress_output_normalizer = normalization.Normalizer(size=3, name='stress_output_normalizer')# NOT USED ACTUALLY
         # self._node_normalizer = normalization.Normalizer(size=9, name='node_normalizer')# NOT USED ACTUALLY
         # self._node_dynamic_normalizer = normalization.Normalizer(size=1, name='node_dynamic_normalizer')# NOT USED ACTUALLY
-        self._mesh_edge_normalizer = normalization.Normalizer(size=8, name='mesh_edge_normalizer')
-        self._world_edge_normalizer = normalization.Normalizer(size=4, name='world_edge_normalizer') 
+        self._mesh_edge_normalizer = normalization.Normalizer(size=output_size*2+2, name='mesh_edge_normalizer')
+        self._world_edge_normalizer = normalization.Normalizer(size=output_size+1, name='world_edge_normalizer') 
 
         self.message_passing_steps = message_passing_steps
         self.message_passing_aggregator = message_passing_aggregator
@@ -249,10 +249,9 @@ def loss_fn(inputs, network_output, model):
     # print(network_output[187])
     node_type = inputs['node_type'].to(network_output.device)
     loss_mask = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.NORMAL.value], device=network_output.device).int())
-    # loss_mask = torch.logical_not(loss_mask)
-    # loss_mask = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.OBSTACLE.value], device=device).int())
-    # loss_mask = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.NORMAL.value], device=device).int())
-    # loss_mask = torch.logical_not(loss_mask)
+    symmetry_mask = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.SYMMETRY.value], device=network_output.device).int())
+    
+    network_output[symmetry_mask,0] = target_normalized[symmetry_mask,0] # Points on the symmerty only use pos_y
     error = torch.sum((target_normalized - network_output) ** 2, dim=1)
     loss = torch.mean(error[loss_mask])
 
@@ -291,10 +290,9 @@ def loss_fn_alter(target, network_output, node_type, model):
     # build loss
     # print(network_output[187])
     loss_mask = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.NORMAL.value], device=node_type.device).int())
-    # loss_mask = torch.logical_not(loss_mask)
-    # loss_mask = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.OBSTACLE.value], device=device).int())
-    # loss_mask = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.NORMAL.value], device=device).int())
-    # loss_mask = torch.logical_not(loss_mask)
+    symmetry_mask = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.SYMMETRY.value], device=network_output.device).int())
+    
+    network_output[symmetry_mask,0] = target_normalized[symmetry_mask,0] # Points on the symmerty only use pos_y
     error = torch.sum((target_normalized - network_output) ** 2, dim=1)
     loss = torch.mean(error[loss_mask])
 

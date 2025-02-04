@@ -10,7 +10,7 @@ from model_utils import HyperEl,Cloth
 from model_utils import deform_eval
 from model_utils import common
 from model_utils.encode_process_decode import init_weights
-from render_utils import Cloth_render
+from render_utils import Cloth_render, HyperEl_render
 from run_utils.utils import *
 import logging
 import numpy as np
@@ -30,12 +30,20 @@ device = torch.device('cuda')
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 
 
-last_run_dir = "D:\project_summary\Graduation Project\\torchMGN\output\Cloth\Thu-Jan--2-00-20-04-2025"
+last_run_dir = "D:\project_summary\Graduation Project\\torchMGN\output\HyperEl\Tue-Jan-28-17-19-20-2025"
+# ds_dir = "D:\project_summary\Graduation Project\\tmp\datasets_np\\flag_simple"
+ds_dir ="D:\project_summary\Graduation Project\\tmp\datasets_hdf5\deforming_plate"
+
 last_run_step_dir = find_nth_latest_run_step(last_run_dir, 1)
 run_step_config = pickle_load(os.path.join(last_run_step_dir, 'log', 'config.pkl'))
 run_step_config['last_run_dir'] = last_run_dir
 run_step_config['last_run_step_dir'] = last_run_step_dir
-ds_dir = "D:\project_summary\Graduation Project\\tmp\datasets_np\\flag_simple"
+
+if run_step_config['model'] == 'Cloth':
+    render = Cloth_render.render
+elif run_step_config['model'] == 'HyperEl':
+    render = HyperEl_render.render
+
 
 M = eval(run_step_config['model'])
 model = M.Model(run_step_config['output_size'], 
@@ -49,7 +57,6 @@ print("Load model:",os.path.join(last_run_step_dir, 'checkpoint', "model_checkpo
 
 model.to(device)
 rollout = M.rollout
-render = Cloth_render.render
 
 is_data_graph = False
 steps = 399
@@ -58,7 +65,7 @@ steps = 399
 dl = datasets.get_trajectory_dataloader(ds_dir,
                                         model=run_step_config['model'],
                                         is_data_graph=is_data_graph, 
-                                        trajectory_index=0)
+                                        trajectory_index=1)
 if run_step_config['model']=="Cloth":
     trajectory = iter(dl)
     init_state = next(trajectory)[0]
@@ -69,5 +76,8 @@ if run_step_config['model']=="Cloth":
     anim.save('animation4.gif', writer='pillow')
 elif run_step_config['model']=="HyperEl":
     trajectory = iter(dl)
-
+    new_trajectory =rollout(model,trajectory,398)
+    print(new_trajectory["world_pos"].size(),new_trajectory["cells"].size())
+    anim = render(new_trajectory, skip=5)
+    anim.save('animation5.gif', writer='pillow')
 

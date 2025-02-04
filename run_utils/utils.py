@@ -183,11 +183,12 @@ def learner(model, loss_fn, run_step_config, device):
                                                             batch_size=run_step_config['batch_size'],
                                                             add_noise_fn=add_noise_fn(run_step_config['noise_field'],run_step_config['noise_scale'],run_step_config['noise_gamma']))
             else:
-                ds_loader = datasets.get_dataloader(run_step_config['dataset_dir'],
-                                                    model=run_step_config['model'],
-                                                    split='train',
-                                                    shuffle=True,
-                                                    prefetch=run_step_config['prefetch'])
+                # ds_loader = datasets.get_dataloader(run_step_config['dataset_dir'],
+                #                                     model=run_step_config['model'],
+                #                                     split='train',
+                #                                     shuffle=True,
+                #                                     prefetch=run_step_config['prefetch'])
+                raise ValueError("please use hdf5 datasets")
             root_logger.info("Epoch " + str(epoch + 1) + "/" + str(run_step_config['epochs']))
             ds_iterator = iter(ds_loader)
 

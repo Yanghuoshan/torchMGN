@@ -266,16 +266,16 @@ class HyperEl_trajectory_dataset(torch.utils.data.Dataset):
 
         self.hdf5_dataset = h5py.File(os.path.join(path, 'dataset.h5'), 'r')
 
-        if prebuild_graph_fn is not None:
-            self.return_item = self.return_graph
-        else:
-            self.return_item = self.return_dict
+        # if prebuild_graph_fn is not None:
+        #     self.return_item = self.return_graph
+        # else:
+        self.return_item = self.return_dict
 
 
     def __len__(self): return next(iter(self.files.items()))[1]
 
     def __getitem__(self, idx : int) -> dict:
-        data = np.load(os.path.join(self.path, self.fname))
+        data = self.hdf5_dataset[self.fname]
         return self.return_item(data, idx)
     
     def return_dict(self, data, sid):
@@ -495,6 +495,103 @@ class HyperEl_single_dataset_hdf5(torch.utils.data.Dataset):
         return [graph, target, new_dict['node_type']]
 
 
+class Easy_HyperEl_single_dataset_hdf5(torch.utils.data.Dataset):
+    def __init__(self, path, prebuild_graph_fn = None, add_noise_fn = None):
+        self.path = path
+        self.meta = json.loads(open(os.path.join(path, 'metadata.json')).read())
+        self.files = self.meta['files']
+        self.num_samples = sum(self.files[f] - 1 for f in self.files)
+        self.add_noise_fn = add_noise_fn
+        self.prebuild_graph_fn = prebuild_graph_fn
+
+        # self.alter=alter # 当alter为true时，障碍物取下一时刻作为输入
+
+        self.hdf5_dataset = h5py.File(os.path.join(path, 'dataset.h5'), 'r')
+
+        if prebuild_graph_fn is not None:
+            self.return_item = self.return_graph
+        else:
+            self.return_item = self.return_dict
+
+    @property
+    def avg_nodes_per_sample(self):
+        total_nodes = 0
+        total_samples = 0
+        for fname, num_steps in self.files.items():
+            data = self.hdf5_dataset[fname]
+            total_nodes += data['mesh_pos'][:].shape[1] * (num_steps - 1)# 一阶模型，即预测速度的模型-1，预测加速度的模型-2
+            total_samples += (num_steps - 1)
+
+        return total_nodes / total_samples
+
+
+    def idx_to_file(self, sample_id):
+        for fname, num_steps in self.files.items():
+            if sample_id < (num_steps - 1): return fname, sample_id
+            else: sample_id -= (num_steps - 1)
+        raise IndexError()
+
+    def __len__(self): return next(iter(self.files.items()))[1]
+
+    def __getitem__(self, idx : int) -> dict:
+        fname, sid = self.idx_to_file(idx)
+        data = self.hdf5_dataset[fname]
+
+        return self.return_item(data, sid)
+    
+    def return_dict(self, data, sid):
+        new_dict =  dict(
+            cells=torch.LongTensor(data['cells'][sid, ...]),
+            node_type=torch.LongTensor(data['node_type'][sid, ...]),
+            mesh_pos=torch.Tensor(data['mesh_pos'][sid, ...]),
+            world_pos=torch.Tensor(data['world_pos'][sid, ...]),
+            target_world_pos=torch.Tensor(data['world_pos'][sid + 1, ...]),
+            # stress=torch.Tensor(data['stress'][sid, ...]) Easy datasets only predict positions.
+        )
+
+        # if self.alter:
+        #     value = NodeType.OBSTACLE
+        #     indices = torch.nonzero(new_dict["node_type"].squeeze() == value).squeeze()
+        #     new_dict["world_pos"][indices] = torch.Tensor(data['world_pos'][sid + 10, ...][indices])
+        
+        if self.add_noise_fn is not None:
+            new_dict = self.add_noise_fn(new_dict)    
+        
+        return new_dict
+        
+
+    def return_graph(self, data, sid):
+        new_dict = dict(
+            cells=torch.LongTensor(data['cells'][sid, ...]),
+            node_type=torch.LongTensor(data['node_type'][sid, ...]),
+            mesh_pos=torch.Tensor(data['mesh_pos'][sid, ...]),
+            world_pos=torch.Tensor(data['world_pos'][sid, ...]),
+            target_world_pos=torch.Tensor(data['world_pos'][sid + 1, ...]),
+            # stress=torch.Tensor(data['stress'][sid, ...])
+        )
+        # if self.alter:
+        #     value = NodeType.OBSTACLE
+        #     indices = torch.nonzero(new_dict["node_type"].squeeze() == value).squeeze()
+        #     new_dict["world_pos"][indices] = torch.Tensor(data['world_pos'][sid + 10, ...][indices])
+
+        if self.add_noise_fn is not None:
+            new_dict = self.add_noise_fn(new_dict)   
+             
+        graph = self.prebuild_graph_fn(new_dict)
+
+        world_pos = new_dict['world_pos']
+        target_world_pos = new_dict['target_world_pos']
+        # target_stress = new_dict['stress']
+
+        cur_position = world_pos
+        target_position = target_world_pos
+        target = target_position - cur_position
+
+        # target = torch.concat((target, target_stress), dim=1) 
+
+        return [graph, target, new_dict['node_type']]
+
+
 def my_collate_fn(batch): # cumstom collate fn
         # batch [data1, data2...]
         return batch
@@ -591,6 +688,8 @@ def get_trajectory_dataloader(path,
     path = os.path.join(path, split)
     if model == "Cloth":
         Datasets = Cloth_trajectory_dataset
+    elif model == "HyperEl":
+        Datasets = HyperEl_trajectory_dataset
     else:
         raise ValueError("The dataset type doesn't exist.")
     
@@ -635,6 +734,8 @@ def get_dataloader_hdf5_batch(path,
         Datasets = Cloth_single_dataset_hdf5
     elif model == "HyperEl":
         Datasets = HyperEl_single_dataset_hdf5
+    elif model == "Easy_HyperEl":
+        Datasets == Easy_HyperEl_single_dataset_hdf5
     else:
         raise ValueError("The dataset type doesn't exist.")
     
@@ -660,51 +761,54 @@ if __name__ == "__main__":
         dl = get_dataloader_hdf5_batch("D:\project_summary\Graduation Project\\tmp\datasets_hdf5\\deforming_plate",model="HyperEl",split="train",prefetch=prefetch,batch_size=1,shuffle=False)
     else:
         dl = get_dataloader("D:\project_summary\Graduation Project\\tmp\datasets_np\\flag_simple",model="Cloth",split="train",prefetch=prefetch)
-    dl = iter(dl)
-    start_time = time.time()
-    # for _ in range(100):
-    #     next(dl)
-    end_time = time.time()
+    # dl = iter(dl)
+    # start_time = time.time()
+    # # for _ in range(100):
+    # #     next(dl)
+    # end_time = time.time()
     
-    a = next(dl)[0]
-    print(a['node_type'])
+    # a = next(dl)[0]
+    # print(a['cells'].shape)
     
-    execution_time = (end_time - start_time)/100
-    print(f"运行时间: {execution_time} 秒")
+    # execution_time = (end_time - start_time)/100
+    # print(f"运行时间: {execution_time} 秒")
+
+    ds = HyperEl_single_dataset_hdf5("D:\project_summary\Graduation Project\\tmp\datasets_hdf5\\deforming_plate\\train")
+    print(next(iter(ds))["node_type"].shape)
 
     # 三维渲染
 
-    import matplotlib.pyplot as plt
-    from mpl_toolkits.mplot3d import Axes3D
-    import numpy as np
-    os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
+    # import matplotlib.pyplot as plt
+    # from mpl_toolkits.mplot3d import Axes3D
+    # import numpy as np
+    # os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
 
-    for _ in range(40):
-        a = next(dl)[0]
-        points = a['world_pos']
-        x = points[:, 0].numpy().astype(float)
-        y = points[:, 1].numpy().astype(float)
-        z = points[:, 2].numpy().astype(float)
-        types = a['node_type'].numpy()
-        # 定义颜色映射
-        colors = ['c','m','y','k','r','b','g']
-        print(types)
-        point_colors = [colors[t[0]] for t in types]
+    # for _ in range(40):
+    #     a = next(dl)[0]
+    #     points = a['world_pos']
+    #     x = points[:, 0].numpy().astype(float)
+    #     y = points[:, 1].numpy().astype(float)
+    #     z = points[:, 2].numpy().astype(float)
+    #     types = a['node_type'].numpy()
+    #     # 定义颜色映射
+    #     colors = ['c','m','y','k','r','b','g']
+    #     print(types)
+    #     point_colors = [colors[t[0]] for t in types]
     
-        # 创建三维图像
-        fig = plt.figure()
-        ax = fig.add_subplot(111, projection='3d')
+    #     # 创建三维图像
+    #     fig = plt.figure()
+    #     ax = fig.add_subplot(111, projection='3d')
 
-        # 绘制点
-        ax.scatter(x, y, z, c=point_colors, marker='o')
+    #     # 绘制点
+    #     ax.scatter(x, y, z, c=point_colors, marker='o')
 
-        # 设置标签
-        ax.set_xlabel('X 轴')
-        ax.set_ylabel('Y 轴')
-        ax.set_zlabel('Z 轴')
+    #     # 设置标签
+    #     ax.set_xlabel('X 轴')
+    #     ax.set_ylabel('Y 轴')
+    #     ax.set_zlabel('Z 轴')
 
-        # 显示图像
-        plt.show()
+    #     # 显示图像
+    #     plt.show()
 
 
 

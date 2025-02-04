@@ -35,6 +35,7 @@ class NodeType(enum.IntEnum):
     OUTFLOW = 5
     WALL_BOUNDARY = 6
     INITIATIVE = 7
+    SYMMETRY = 8
     SIZE = 9
 
 
