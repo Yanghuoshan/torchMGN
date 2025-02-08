@@ -313,6 +313,63 @@ class HyperEl_trajectory_dataset(torch.utils.data.Dataset):
         return [graph, target, new_dict['node_type']]
 
 
+class Easy_HyperEl_trajectory_dataset(torch.utils.data.Dataset):
+    def __init__(self, path, prebuild_graph_fn = None, trajectory_index = 0):
+        self.path = path
+        self.meta = json.loads(open(os.path.join(path, 'metadata.json')).read())
+        self.files = self.meta['files']
+        self.num_samples = sum(self.files[f] - 1 for f in self.files)
+        self.fname = list(self.files.keys())[trajectory_index]
+        self.prebuild_graph_fn = prebuild_graph_fn
+
+        self.hdf5_dataset = h5py.File(os.path.join(path, 'dataset.h5'), 'r')
+
+        # if prebuild_graph_fn is not None:
+        #     self.return_item = self.return_graph
+        # else:
+        self.return_item = self.return_dict
+
+
+    def __len__(self): return next(iter(self.files.items()))[1]
+
+    def __getitem__(self, idx : int) -> dict:
+        data = self.hdf5_dataset[self.fname]
+        return self.return_item(data, idx)
+    
+    def return_dict(self, data, sid):
+        return dict(
+            cells=torch.LongTensor(data['cells'][sid, ...]),
+            node_type=torch.LongTensor(data['node_type'][sid, ...]),
+            mesh_pos=torch.Tensor(data['mesh_pos'][sid, ...]),
+            world_pos=torch.Tensor(data['world_pos'][sid, ...]),
+            target_world_pos=torch.Tensor(data['world_pos'][sid + 1, ...]),
+            # stress=torch.Tensor(data['stress'][sid, ...])
+        )
+    
+    def return_graph(self, data, sid):
+        new_dict = dict(
+            cells=torch.LongTensor(data['cells'][sid, ...]),
+            node_type=torch.LongTensor(data['node_type'][sid, ...]),
+            mesh_pos=torch.Tensor(data['mesh_pos'][sid, ...]),
+            world_pos=torch.Tensor(data['world_pos'][sid, ...]),
+            target_world_pos=torch.Tensor(data['world_pos'][sid + 1, ...]),
+            # stress=torch.Tensor(data['stress'][sid, ...])
+        ) 
+             
+        graph = self.prebuild_graph_fn(new_dict)
+
+        world_pos = new_dict['world_pos']
+        target_world_pos = new_dict['target_world_pos']
+        # target_stress = new_dict['stress']
+
+        cur_position = world_pos
+        target_position = target_world_pos
+        target = target_position - cur_position
+
+        # target = torch.concat((target, target_stress), dim=1) 
+
+        return [graph, target, new_dict['node_type']]
+
 
 class Cloth_single_dataset_hdf5(torch.utils.data.Dataset):
     def __init__(self, path, prebuild_graph_fn = None, add_noise_fn = None):
@@ -592,6 +649,107 @@ class Easy_HyperEl_single_dataset_hdf5(torch.utils.data.Dataset):
         return [graph, target, new_dict['node_type']]
 
 
+class IncompNS_single_dataset_hdf5(torch.utils.data.Dataset): # use the world field here
+    def __init__(self, path, prebuild_graph_fn = None, add_noise_fn = None):
+        self.path = path
+        self.meta = json.loads(open(os.path.join(path, 'metadata.json')).read())
+        self.files = self.meta['files']
+        self.num_samples = sum(self.files[f] - 1 for f in self.files)
+        self.add_noise_fn = add_noise_fn
+        self.prebuild_graph_fn = prebuild_graph_fn
+
+        # self.alter=alter # 当alter为true时，障碍物取下一时刻作为输入
+
+        self.hdf5_dataset = h5py.File(os.path.join(path, 'dataset.h5'), 'r')
+
+        if prebuild_graph_fn is not None:
+            self.return_item = self.return_graph
+        else:
+            self.return_item = self.return_dict
+
+    @property
+    def avg_nodes_per_sample(self):
+        total_nodes = 0
+        total_samples = 0
+        for fname, num_steps in self.files.items():
+            data = self.hdf5_dataset[fname]
+            total_nodes += data['mesh_pos'][:].shape[1] * (num_steps - 1)# 一阶模型，即预测速度的模型-1，预测加速度的模型-2
+            total_samples += (num_steps - 1)
+
+        return total_nodes / total_samples
+
+
+    def idx_to_file(self, sample_id):
+        for fname, num_steps in self.files.items():
+            if sample_id < (num_steps - 1): return fname, sample_id
+            else: sample_id -= (num_steps - 1)
+        raise IndexError()
+
+    def __len__(self): return self.num_samples
+
+    def __getitem__(self, idx : int) -> dict:
+        fname, sid = self.idx_to_file(idx)
+        data = self.hdf5_dataset[fname]
+
+        return self.return_item(data, sid)
+    
+    def return_dict(self, data, sid):
+        new_dict =  dict(
+            triangles=torch.LongTensor(data['triangles'][sid, ...]),
+            rectangles=torch.LongTensor(data['rectangles'][sid, ...]),
+            node_type=torch.LongTensor(data['node_type'][sid, ...]),
+            mesh_pos=torch.Tensor(data['mesh_pos'][sid, ...]),
+            world_pos=torch.Tensor(data['world_pos'][sid, ...]),
+            velocity=torch.Tensor(data['velocity'][sid, ...]),
+            target_world_pos=torch.Tensor(data['world_pos'][sid + 1, ...]),
+            target_velocity=torch.Tensor(data['velocity'][sid + 1, ...]),
+        )
+
+
+        # if self.alter:
+        #     value = NodeType.OBSTACLE
+        #     indices = torch.nonzero(new_dict["node_type"].squeeze() == value).squeeze()
+        #     new_dict["world_pos"][indices] = torch.Tensor(data['world_pos'][sid + 10, ...][indices])
+        
+        if self.add_noise_fn is not None:
+            new_dict = self.add_noise_fn(new_dict)    
+        
+        return new_dict
+        
+
+    def return_graph(self, data, sid):
+        new_dict = new_dict =  dict(
+            triangles=torch.LongTensor(data['triangles'][sid, ...]),
+            rectangles=torch.LongTensor(data['rectangles'][sid, ...]),
+            node_type=torch.LongTensor(data['node_type'][sid, ...]),
+            mesh_pos=torch.Tensor(data['mesh_pos'][sid, ...]),
+            world_pos=torch.Tensor(data['world_pos'][sid, ...]),
+            velocity=torch.Tensor(data['velocity'][sid, ...]),
+            target_world_pos=torch.Tensor(data['world_pos'][sid + 1, ...]),
+            target_velocity=torch.Tensor(data['velocity'][sid + 1, ...]),
+        )
+  
+        if self.add_noise_fn is not None:
+            new_dict = self.add_noise_fn(new_dict)   
+             
+        graph = self.prebuild_graph_fn(new_dict)
+
+        world_pos = new_dict['world_pos']
+        velocity = new_dict['velocity']
+        target_world_pos = new_dict['target_world_pos']
+        target_velocity = new_dict['target_velocity']
+
+        cur_position = world_pos
+        target_position = target_world_pos
+        target1 = target_position - cur_position
+
+        cur_velocity = velocity
+        target2 = target_velocity - cur_velocity
+
+        target = torch.concat((target1, target2), dim=1) 
+
+        return [graph, target, new_dict['node_type']]
+
 def my_collate_fn(batch): # cumstom collate fn
         # batch [data1, data2...]
         return batch
@@ -690,6 +848,8 @@ def get_trajectory_dataloader(path,
         Datasets = Cloth_trajectory_dataset
     elif model == "HyperEl":
         Datasets = HyperEl_trajectory_dataset
+    elif model == "Easy_HyperEl":
+        Datasets = Easy_HyperEl_trajectory_dataset
     else:
         raise ValueError("The dataset type doesn't exist.")
     
@@ -736,6 +896,8 @@ def get_dataloader_hdf5_batch(path,
         Datasets = HyperEl_single_dataset_hdf5
     elif model == "Easy_HyperEl":
         Datasets = Easy_HyperEl_single_dataset_hdf5
+    elif model == "IncompNS":
+        Datasets = IncompNS_single_dataset_hdf5
     else:
         raise ValueError("The dataset type doesn't exist.")
     
@@ -756,12 +918,15 @@ if __name__ == "__main__":
     prefetch = 4
     is_graph = False
     use_h5 = True
+    model = 'IncompNS'
+    ds_path = "D:\project_summary\Graduation Project\\tmp\datasets_hdf5\\waterballoon_dataset"
+    split = "train"
     print(f'prefetch: {prefetch}, is_graph: {is_graph}, is_useh5: {use_h5}')
     if use_h5:
-        dl = get_dataloader_hdf5_batch("D:\project_summary\Graduation Project\\tmp\datasets_hdf5\\my_dataset",model="Easy_HyperEl",split="train",prefetch=prefetch,batch_size=1,shuffle=False)
+        dl = get_dataloader_hdf5_batch(ds_path,model=model,split=split,prefetch=prefetch,batch_size=1,shuffle=False)
     else:
         dl = get_dataloader("D:\project_summary\Graduation Project\\tmp\datasets_np\\flag_simple",model="Cloth",split="train",prefetch=prefetch)
-    print(len(dl.dataset))
+    # print(len(dl.dataset))
     # dl = iter(dl)
     # start_time = time.time()
     # for i in range(1000):

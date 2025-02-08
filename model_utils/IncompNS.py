@@ -14,72 +14,65 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-"""Model for FlagSimple."""
+"""Model for Waterballoon."""
+
+import common
+import normalization
 
 import torch
-from torch import nn as nn
+import torch.nn as nn
 import torch.nn.functional as F
-# from torch_cluster import random_walk
-import functools
-
-from model_utils import common
-from model_utils import normalization
-from model_utils import encode_process_decode
-
+import encode_process_decode
 from dataclasses import replace
 
-
-
-
 class Model(nn.Module):
-    """Model for static cloth simulation."""
+    """Model for fluid simulation."""
 
-    def __init__(self, output_size, message_passing_aggregator='sum', message_passing_steps=15, is_use_world_edge=False, mesh_type=0):
+    def __init__(self, output_size, message_passing_aggregator='sum', message_passing_steps=15, is_use_world_edge=False, mesh_type=3):
         super(Model, self).__init__()
         self.output_size = output_size
-        self._output_normalizer = normalization.Normalizer(size=3, name='output_normalizer')
-        self._node_normalizer = normalization.Normalizer(size=3 + common.NodeType.SIZE, name='node_normalizer')
-        # self._node_dynamic_normalizer = normalization.Normalizer(size=1, name='node_dynamic_normalizer')
-        self._mesh_edge_normalizer = normalization.Normalizer(size=7, name='mesh_edge_normalizer')  # 2D coord + 3D coord + 2*length = 7
-        # self._world_edge_normalizer = normalization.Normalizer(size=4, name='world_edge_normalizer')
+        self._output_normalizer = normalization.Normalizer(size=output_size, name='output_normalizer')
+        self._mesh_edge_normalizer = normalization.Normalizer(size=8, name='mesh_edge_normalizer')
+        # self._world_edge_normalizer = normalization.Normalizer(size=4, name='world_edge_normalizer') # abandon temporarily
+        self._node_normalizer = normalization.Normalizer(size=1 + common.NodeType.SIZE, name='node_normalizer')
 
         self.message_passing_steps = message_passing_steps
         self.message_passing_aggregator = message_passing_aggregator
-
+        
         self.mesh_type = mesh_type
         
         self.learned_model = encode_process_decode.EncodeProcessDecode(
-            output_size=output_size,
+            output_size=output_size,# 在deforming_plate中是4
             latent_size=128,
             num_layers=2,
             message_passing_steps=self.message_passing_steps,
             message_passing_aggregator=self.message_passing_aggregator,
-            is_use_world_edge = is_use_world_edge)
+            is_use_world_edge=is_use_world_edge)
         
         self.noise_scale = 0.003
-        self.noise_gamma = 0.1
-        self.noise_field = "world_pos"
-
-        
+        self.noise_gamma = 1
+        self.noise_field = ["world_pos","velocity"]
 
     def graph_normalization(self, graph):
-        new_node_features = self._node_normalizer(graph.node_features)
         new_mesh_edges = replace(graph.edge_sets[0],features = self._mesh_edge_normalizer(graph.edge_sets[0].features))
-        
+        # new_world_edges = replace(graph.edge_sets[1],features = self._world_edge_normalizer(graph.edge_sets[1].features))
+        new_node_features = self._node_normalizer(graph.node_features)
+
+        # graph = replace(graph, node_features=new_node_features, edge_sets=[new_mesh_edges, new_world_edges])
         graph = replace(graph, node_features=new_node_features, edge_sets=[new_mesh_edges])
         return graph
-    
 
     def build_graph(self, inputs):
         """Builds input graph."""
-        # node_type = inputs['node_type']
-        # velocity = inputs['world_pos'] - inputs['prev_world_pos']
-        # one_hot_node_type = F.one_hot(node_type[:, 0].to(torch.int64), common.NodeType.SIZE)
-        # node_features = torch.cat((velocity, one_hot_node_type), dim=-1)
-        node_features = torch.cat((inputs['world_pos'] - inputs['prev_world_pos'], F.one_hot(inputs['node_type'][:, 0].to(torch.int64), common.NodeType.SIZE)), dim=-1)
+        node_type = inputs['node_type']
+        velocity = inputs['velocity']
+        node_type = F.one_hot(node_type[:, 0].to(torch.int64), common.NodeType.SIZE)
 
-        cells = inputs['cells']
-        senders, receivers = common.triangles_to_edges(cells, type=self.mesh_type)
+        node_features = torch.cat((velocity, node_type), dim=-1)
+
+        cells = [inputs['triangles'],inputs['rectangles']]
+        senders, receivers = common.triangles_to_edges(cells, type=3)
+        
 
         mesh_pos = inputs['mesh_pos']
         relative_world_pos = (torch.index_select(input=inputs['world_pos'], dim=0, index=senders) -
@@ -110,32 +103,19 @@ class Model(nn.Module):
             graph = self.build_graph(inputs)
             graph = self.graph_normalization(graph)
             return self._update(inputs, self.learned_model(graph))
-        
+    
     def forward_with_graph(self, graph, is_trainning):
-        # graph features normalization
-        # new_node_features = self._node_normalizer(graph.node_features)
-        # new_mesh_edges = replace(graph.edge_sets[0],features = self._mesh_edge_normalizer(graph.edge_sets[0].features))
-        
-        # graph = replace(graph, node_features=new_node_features, edge_sets=[new_mesh_edges])
-
         graph = self.graph_normalization(graph)
 
         if is_trainning:
             return self.learned_model(graph)
-
+        
     def _update(self, inputs, per_node_network_output):
-        """
-        Integrate model outputs.
-        Ouput next position 
-        """
-
-        acceleration = self._output_normalizer.inverse(per_node_network_output)
-
+        """Integrate model outputs."""
+        velocity_update = self._output_normalizer.inverse(per_node_network_output)
         # integrate forward
-        cur_position = inputs['world_pos']
-        prev_position = inputs['prev_world_pos']
-        position = 2 * cur_position + acceleration - prev_position
-        return position
+        cur_velocity = inputs['velocity']
+        return cur_velocity + velocity_update
 
     def get_output_normalizer(self):
         return self._output_normalizer
@@ -156,10 +136,6 @@ class Model(nn.Module):
         self._node_normalizer = torch.load(path + "_node_normalizer.pth", map_location='cpu')
         # self._node_dynamic_normalizer = torch.load(path + "_node_dynamic_normalizer.pth")
 
-    def evaluate(self):
-        self.eval()
-        self.learned_model.eval()
-
     def to(self, device):
         super().to(device)
         self._output_normalizer.to(device)
@@ -168,19 +144,28 @@ class Model(nn.Module):
         self.learned_model.to(device)
         return self
 
+    def evaluate(self):
+        self.eval()
+        self.learned_model.eval()
 
 def loss_fn(inputs, network_output, model):
     world_pos = inputs['world_pos']
-    prev_world_pos = inputs['prev_world_pos']
     target_world_pos = inputs['target_world_pos']
-
+    velocity = inputs['velocity']
+    target_velocity = inputs['target_velocity']
+        
     cur_position = world_pos
-    prev_position = prev_world_pos
     target_position = target_world_pos
-    target_acceleration = target_position - 2 * cur_position + prev_position
-    target_acceleration = target_acceleration.to(network_output.device)
-    target_normalized = model.get_output_normalizer()(target_acceleration)
+    target1 = target_position - cur_position
 
+    cur_velocity = velocity
+    target2 = target_velocity - cur_velocity
+
+    target = torch.concat((target1, target2))
+    target = target.to(network_output.device)
+    target_normalized = model.get_output_normalizer()(target)
+
+    
     # build loss
     node_type = inputs['node_type'].to(network_output.device)
     loss_mask = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.NORMAL.value], device=network_output.device).int())
@@ -234,28 +219,4 @@ def rollout(model, initial_state, num_steps):
 
 
 def evaluate(model, trajectory, num_steps=None):
-    """
-    Performs model rollouts and create stats.
-    trajectory: a iterable dataloader
-    num_steps: num of rollout steps 
-    """
-    # initial_state = next(trajectory)[0]
-    # if num_steps is None:
-    #     num_steps = initial_state['cells'].shape[0]
-    # prediction = rollout(model, initial_state, num_steps)
-
-    # # error = tf.reduce_mean((prediction - trajectory['world_pos'])**2, axis=-1)
-    # # scalars = {'mse_%d_steps' % horizon: tf.reduce_mean(error[1:horizon+1])
-    # #            for horizon in [1, 10, 20, 50, 100, 200]}
-
-    # scalars = None
-    # traj_ops = {
-    #     'faces': trajectory['cells'],
-    #     'mesh_pos': trajectory['mesh_pos'],
-    #     'gt_pos': trajectory['world_pos'],
-    #     'pred_pos': prediction
-    # }
-    # return scalars, traj_ops
     pass
-
-

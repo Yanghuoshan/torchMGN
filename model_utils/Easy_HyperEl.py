@@ -17,6 +17,7 @@ class Model(nn.Module):
 
     def __init__(self, output_size, message_passing_aggregator='sum', message_passing_steps=15, is_use_world_edge=True, mesh_type=2):
         super(Model, self).__init__()
+        self.output_size = output_size
         self._output_normalizer = normalization.Normalizer(size=output_size, name='output_normalizer')
         # self._stress_output_normalizer = normalization.Normalizer(size=3, name='stress_output_normalizer')# NOT USED ACTUALLY
         # self._node_normalizer = normalization.Normalizer(size=9, name='node_normalizer')# NOT USED ACTUALLY
@@ -172,10 +173,8 @@ class Model(nn.Module):
         output_mask = torch.stack([output_mask] * inputs['world_pos'].shape[-1], dim=1)
         velocity = self._output_normalizer.inverse(torch.where(output_mask, per_node_network_output, torch.tensor(0., device=device)))'''
         output = self._output_normalizer.inverse(per_node_network_output)
-        velocity = output[...,0:3]
+        velocity = output[...,0:self.output_size]
         # stress = output[...,3]
-
-        node_type = inputs['node_type']
         '''scripted_node_mask = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.OBSTACLE.value], device=device))
         scripted_node_mask = torch.stack([scripted_node_mask] * 3, dim=1)'''
 
@@ -219,7 +218,7 @@ class Model(nn.Module):
 
 
 def loss_fn(inputs, network_output, model):
-    """L2 loss on position."""
+    """L1 loss on position."""
     # build target acceleration
     
     world_pos = inputs['world_pos']
@@ -302,28 +301,20 @@ def rollout(model, trajectory, num_steps, device='cuda'):
     cur_state = next(trajectory)[0]
     node_type = cur_state['node_type']
     mask_normal = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.NORMAL.value], device=node_type.device))
-    mask_normal = torch.stack((mask_normal, mask_normal, mask_normal), dim=1).to(device)
+    mask_normal = torch.stack((mask_normal, mask_normal), dim=1).to(device)
 
-    mask_obstacle = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.OBSTACLE.value], device=node_type.device))
-    mask_obstacle = torch.stack((mask_obstacle, mask_obstacle, mask_obstacle), dim=1).to(device)
+    mask_symmetry = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.SYMMETRY.value], device=node_type.device))
 
-    # def step_fn(prev_pos, cur_pos, trajectory, cells):
+    mask_initiative = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.INITIATIVE.value], device=node_type.device))
+    mask_initiative = torch.stack((mask_initiative, mask_initiative), dim=1).to(device)
+    # mask_obstacle = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.OBSTACLE.value], device=node_type.device))
+    # mask_obstacle = torch.stack((mask_obstacle, mask_obstacle, mask_obstacle), dim=1).to(device)
 
-    #     with torch.no_grad():
-    #         prediction = model({**initial_state, # cells, node_type, mesh_pos
-    #                             'prev_world_pos': prev_pos,
-    #                             'world_pos': cur_pos}, is_trainning=False)
-
-    #     next_pos = torch.where(mask_normal, prediction, cur_pos)
-
-    #     trajectory.append(cur_pos)
-    #     cells.append(initial_state['cells'])
-    #     return cur_pos, next_pos, trajectory, cells
     new_trajectory = []
     cells = []
 
     for k in cur_state:
-            cur_state[k] = cur_state[k].to(device)
+        cur_state[k] = cur_state[k].to(device)
 
     new_trajectory.append(cur_state['world_pos'])
     cells.append(cur_state['cells'])
@@ -333,15 +324,11 @@ def rollout(model, trajectory, num_steps, device='cuda'):
         with torch.no_grad():
             prediction = model(cur_state,is_trainning=False)
 
-        next_pos = torch.where(mask_normal, prediction, cur_state['world_pos']) # select normal points
-    
-        cur_state = next(trajectory)[0]
-        for k in cur_state:
-            cur_state[k] = cur_state[k].to(device)
+        next_pos = torch.where(mask_normal|mask_initiative, prediction, cur_state['world_pos']) # select normal and initiative points
+        next_pos[mask_symmetry]=prediction[mask_symmetry]
 
-        cur_state_world_pos = torch.where(mask_obstacle, cur_state['world_pos'], next_pos) # select obstacle points
 
-        cur_state['world_pos'] = cur_state_world_pos
+        cur_state['world_pos'] = next_pos
 
         new_trajectory.append(cur_state['world_pos'])
         cells.append(cur_state['cells'])

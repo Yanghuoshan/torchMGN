@@ -17,6 +17,7 @@ class Model(nn.Module):
 
     def __init__(self, output_size, message_passing_aggregator='sum', message_passing_steps=15, is_use_world_edge=True, mesh_type=2):
         super(Model, self).__init__()
+        self.output_size = output_size
         self._output_normalizer = normalization.Normalizer(size=output_size, name='output_normalizer')
         # self._stress_output_normalizer = normalization.Normalizer(size=3, name='stress_output_normalizer')# NOT USED ACTUALLY
         # self._node_normalizer = normalization.Normalizer(size=9, name='node_normalizer')# NOT USED ACTUALLY
