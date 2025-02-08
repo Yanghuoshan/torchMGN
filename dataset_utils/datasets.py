@@ -700,9 +700,9 @@ class IncompNS_single_dataset_hdf5(torch.utils.data.Dataset): # use the world fi
             node_type=torch.LongTensor(data['node_type'][sid, ...]),
             mesh_pos=torch.Tensor(data['mesh_pos'][sid, ...]),
             world_pos=torch.Tensor(data['world_pos'][sid, ...]),
-            velocity=torch.Tensor(data['velocity'][sid, ...]),
+            velocity=torch.Tensor(data['velocity'][sid, ...]).unsqueeze_(-1),
             target_world_pos=torch.Tensor(data['world_pos'][sid + 1, ...]),
-            target_velocity=torch.Tensor(data['velocity'][sid + 1, ...]),
+            target_velocity=torch.Tensor(data['velocity'][sid + 1, ...]).unsqueeze_(-1),
         )
 
 
@@ -724,9 +724,9 @@ class IncompNS_single_dataset_hdf5(torch.utils.data.Dataset): # use the world fi
             node_type=torch.LongTensor(data['node_type'][sid, ...]),
             mesh_pos=torch.Tensor(data['mesh_pos'][sid, ...]),
             world_pos=torch.Tensor(data['world_pos'][sid, ...]),
-            velocity=torch.Tensor(data['velocity'][sid, ...]),
+            velocity=torch.Tensor(data['velocity'][sid, ...]).unsqueeze_(-1),
             target_world_pos=torch.Tensor(data['world_pos'][sid + 1, ...]),
-            target_velocity=torch.Tensor(data['velocity'][sid + 1, ...]),
+            target_velocity=torch.Tensor(data['velocity'][sid + 1, ...]).unsqueeze_(-1),
         )
   
         if self.add_noise_fn is not None:
