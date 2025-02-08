@@ -302,7 +302,7 @@ def add_noise_fn(field, scale, gamma):
             input['target_'+one_field] += (1.0 - gamma) * noise
         return input
     
-    if field is list:
+    if isinstance(field, list):
         return add_noise_mutifields
     else:
         return add_noise
