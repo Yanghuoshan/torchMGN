@@ -32,11 +32,11 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "0, 1"
 FLAGS = flags.FLAGS
 
 # common run configuration
-flags.DEFINE_enum('model', 'Cloth', ['HyperEl','Cloth','Easy_HyperEl'], 'Select model to run.')
+flags.DEFINE_enum('model', 'Cloth', ['HyperEl','Cloth','Easy_HyperEl','IncompNS'], 'Select model to run.')
 flags.DEFINE_string('output_dir','D:\\project_summary\\Graduation Project\\torchMGN\\','path to output_dir')
 
 flags.DEFINE_string('datasets_dir','D:\\project_summary\\Graduation Project\\tmp\\datasets_hdf5','path to datasets')
-flags.DEFINE_enum('dataset', 'flag_simple', ['deforming_plate','flag_simple','my_dataset'], 'Select dataset to run')
+flags.DEFINE_enum('dataset', 'flag_simple', ['deforming_plate','flag_simple','my_dataset','waterballoon_dataset'], 'Select dataset to run')
 flags.DEFINE_boolean('prebuild_graph', False, 'is dataloader output graph')
 flags.DEFINE_integer('prefetch', 1, 'prefetch size')
 flags.DEFINE_integer('batch_size', 1, 'batch size')
