@@ -16,8 +16,9 @@
 # ============================================================================
 """Model for Waterballoon."""
 
-import common
-import normalization
+from model_utils import common
+from model_utils import normalization
+from model_utils import encode_process_decode
 
 import torch
 import torch.nn as nn
