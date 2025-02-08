@@ -12,7 +12,7 @@ import torch
 import gc
 
 from dataset_utils import datasets 
-from model_utils import *
+from model_utils import HyperEl,Cloth,Easy_HyperEl,IncompNS
 from model_utils.common import *
 from run_utils.utils import *
 
