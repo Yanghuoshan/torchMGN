@@ -299,11 +299,11 @@ def add_noise_fn(field, scale, gamma):
             mask = mask.repeat(1, noise.size(1) // mask.size(1))
             noise = torch.where(mask, noise, torch.zeros_like(noise))
             input[one_field] += noise
-            input['target_'+field] += (1.0 - gamma) * noise
+            input['target_'+one_field] += (1.0 - gamma) * noise
         return input
     
-    if len(field) == 1:
-        return add_noise
-    else:
+    if field is list:
         return add_noise_mutifields
+    else:
+        return add_noise
 
