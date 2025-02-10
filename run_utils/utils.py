@@ -131,7 +131,7 @@ def learner(model, loss_fn, run_step_config, device):
     running_loss = 0.0
     trained_epoch = 0
     trained_step = 0
-    scheduler_flag = True
+    scheduler_flag = 0
 
     if run_step_config['last_run_dir'] is not None:
         optimizer.load_state_dict(torch.load(os.path.join(run_step_config['last_run_step_dir'], 'checkpoint', "optimizer_checkpoint.pth")))
@@ -257,11 +257,16 @@ def learner(model, loss_fn, run_step_config, device):
                     not_reached_max_steps = False
                     break
 
-                # Adjust the lr when the trainning step is larger then 0.6*max_steps
-                if ((step+1) > (run_step_config['max_steps']*0.6)) and scheduler_flag:
+                # Adjust the lr when the trainning step 
+                if ((step+1) > (run_step_config['max_steps']*0.6)) and scheduler_flag == 0:
                     scheduler.step()
                     root_logger.info("Call scheduler in step " + str(step + 1))
-                    scheduler_flag = False
+                    scheduler_flag += 1
+
+                if ((step+1) > (run_step_config['max_steps']*0.8)) and scheduler_flag == 1:
+                    scheduler.step()
+                    root_logger.info("Call scheduler in step " + str(step + 1))
+                    scheduler_flag += 1
                 
                 # memory cleaning
                 # if ((step+1) % 1000) == 0:
