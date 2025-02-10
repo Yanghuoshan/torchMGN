@@ -178,7 +178,7 @@ def loss_fn(inputs, network_output, model):
     y_axis_mask = (world_pos[:, 0] == 0)
 
     # 对于y_axis_mask为True的点，loss只算其第二维
-    error[y_axis_mask] = (target_normalized[y_axis_mask, 1:3] - network_output[y_axis_mask, 1:3]) ** 2
+    error[y_axis_mask] = torch.sum((target_normalized[y_axis_mask, 1:3] - network_output[y_axis_mask, 1:3]) ** 2, dim=1)
 
     loss = torch.mean(error[combine_loss_mark])  
     return loss
@@ -196,7 +196,7 @@ def loss_fn_alter(target, network_output, node_type, model):
     y_axis_mask = (target[:, 0] == 0)
 
     # 对于y_axis_mask为True的点，loss只算其第二维y和第三维u
-    error[y_axis_mask] = (target_normalized[y_axis_mask, 1:3] - network_output[y_axis_mask, 1:3]) ** 2
+    error[y_axis_mask] = torch.sum((target_normalized[y_axis_mask, 1:3] - network_output[y_axis_mask, 1:3]) ** 2, dim=1)
 
     loss = torch.mean(error[combine_loss_mark])
     return loss
