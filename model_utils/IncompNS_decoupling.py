@@ -48,16 +48,30 @@ class Model(nn.Module):
         self.use_global_features = use_global_features
         
         if self.use_global_features:
-            self.learned_model = encode_process_decode.EncodeProcessDecodeAlter(
-                output_size=output_size,# 在deforming_plate中是4
+            self.learned_model1 = encode_process_decode.EncodeProcessDecodeAlter(
+                output_size=output_size-1,# 在deforming_plate中是4
+                latent_size=128,
+                num_layers=2,
+                message_passing_steps=self.message_passing_steps,
+                message_passing_aggregator=self.message_passing_aggregator,
+                is_use_world_edge=is_use_world_edge)
+            self.learned_model2 = encode_process_decode.EncodeProcessDecodeAlter(
+                output_size=1,# 在deforming_plate中是4
                 latent_size=128,
                 num_layers=2,
                 message_passing_steps=self.message_passing_steps,
                 message_passing_aggregator=self.message_passing_aggregator,
                 is_use_world_edge=is_use_world_edge)
         else:
-            self.learned_model = encode_process_decode.EncodeProcessDecode(
-                output_size=output_size,# 在deforming_plate中是4
+            self.learned_model1 = encode_process_decode.EncodeProcessDecode(
+                output_size=output_size-1,# 在deforming_plate中是4
+                latent_size=128,
+                num_layers=2,
+                message_passing_steps=self.message_passing_steps,
+                message_passing_aggregator=self.message_passing_aggregator,
+                is_use_world_edge=is_use_world_edge)
+            self.learned_model2 = encode_process_decode.EncodeProcessDecode(
+                output_size=1,# 在deforming_plate中是4
                 latent_size=128,
                 num_layers=2,
                 message_passing_steps=self.message_passing_steps,
@@ -117,11 +131,16 @@ class Model(nn.Module):
             if not prebuild_graph:
                 inputs = self.build_graph(inputs)
             graph = self.graph_normalization(inputs)
-            return self.learned_model(graph)
+            out1 = self.learned_model1(graph)
+            out2 = self.learned_model2(graph)
+            return torch.cat((out1,out2),dim=-1)
         else:
             graph = self.build_graph(inputs)
             graph = self.graph_normalization(graph)
-            return self._update(inputs, self.learned_model(graph))
+            out1 = self.learned_model1(graph)
+            out2 = self.learned_model2(graph)
+            out = torch.cat((out1,out2),dim=-1)
+            return self._update(inputs, out)
 
         
     def _update(self, inputs, per_node_network_output):
@@ -135,7 +154,8 @@ class Model(nn.Module):
         return self._output_normalizer
 
     def save_model(self, path):
-        torch.save(self.learned_model, path + "_learned_model.pth")
+        torch.save(self.learned_model1, path + "_learned_model1.pth")
+        torch.save(self.learned_model2, path + "_learned_model2.pth")
         torch.save(self._output_normalizer, path + "_output_normalizer.pth")
         torch.save(self._mesh_edge_normalizer, path + "_mesh_edge_normalizer.pth")
         # torch.save(self._world_edge_normalizer, path + "_world_edge_normalizer.pth")
@@ -143,7 +163,8 @@ class Model(nn.Module):
         # torch.save(self._node_dynamic_normalizer, path + "_node_dynamic_normalizer.pth")
 
     def load_model(self, path):
-        self.learned_model = torch.load(path + "_learned_model.pth", map_location='cpu')
+        self.learned_model1 = torch.load(path + "_learned_model1.pth", map_location='cpu')
+        self.learned_model2 = torch.load(path + "_learned_model2.pth", map_location='cpu')
         self._output_normalizer = torch.load(path + "_output_normalizer.pth", map_location='cpu')
         self._mesh_edge_normalizer = torch.load(path + "_mesh_edge_normalizer.pth", map_location='cpu')
         # self._world_edge_normalizer = torch.load(path + "_world_edge_normalizer.pth")
