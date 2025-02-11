@@ -54,7 +54,8 @@ flags.DEFINE_integer('gpu_num', 1, help='choose how many gpus to use')
 flags.DEFINE_integer('output_size', 3, 'Num of output_size')
 flags.DEFINE_enum('core_model', 'encode_process_decode', ['encode_process_decode'], 'Core model to be used')
 flags.DEFINE_enum('message_passing_aggregator', 'sum', ['sum', 'max', 'min', 'mean', 'pna'], 'No. of training epochs')
-flags.DEFINE_integer('message_passing_steps', 5, 'No. of training epochs')
+flags.DEFINE_integer('message_passing_steps', 5, 'num of message passing steps')
+flags.DEFINE_integer('latent_size', 128, 'size of latent layers')
 # flags.DEFINE_boolean('is_use_world_edge', False, 'Is the model use world edges') 
 
 # decide whether to use the previous model state
@@ -89,6 +90,7 @@ def main(argv):
                        'core_model': FLAGS.core_model,
                        'message_passing_aggregator': FLAGS.message_passing_aggregator,
                        'message_passing_steps': FLAGS.message_passing_steps,
+                       'latent_size':FLAGS.latent_size,
                     #    'is_use_world_edge':FLAGS.is_use_world_edge,
                        'dataset_dir': os.path.join(FLAGS.datasets_dir, FLAGS.dataset),
                        'last_run_dir': last_run_dir}    
@@ -151,6 +153,7 @@ def main(argv):
     model = eval(run_step_config['model']).Model(run_step_config['output_size'], 
                                                  run_step_config['message_passing_aggregator'],
                                                  run_step_config['message_passing_steps'],
+                                                 run_step_config['latent_size']
                                                 #  run_step_config['is_use_world_edge'],
                                                 )
     run_step_config['noise_scale'] = model.noise_scale

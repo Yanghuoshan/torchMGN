@@ -34,7 +34,7 @@ from dataclasses import replace
 class Model(nn.Module):
     """Model for static cloth simulation."""
 
-    def __init__(self, output_size, message_passing_aggregator='sum', message_passing_steps=15, is_use_world_edge=False, mesh_type=0):
+    def __init__(self, output_size, message_passing_aggregator='sum', message_passing_steps=15, latent_size=128, is_use_world_edge=False, mesh_type=0):
         super(Model, self).__init__()
         self.output_size = output_size
         self._output_normalizer = normalization.Normalizer(size=3, name='output_normalizer')
@@ -50,7 +50,7 @@ class Model(nn.Module):
         
         self.learned_model = encode_process_decode.EncodeProcessDecode(
             output_size=output_size,
-            latent_size=128,
+            latent_size=latent_size,
             num_layers=2,
             message_passing_steps=self.message_passing_steps,
             message_passing_aggregator=self.message_passing_aggregator,

@@ -29,7 +29,7 @@ from dataclasses import replace
 class Model(nn.Module):
     """Model for fluid simulation."""
 
-    def __init__(self, output_size, message_passing_aggregator='sum', message_passing_steps=15, 
+    def __init__(self, output_size, message_passing_aggregator='sum', message_passing_steps=15, latent_size=256,
                  is_use_world_edge=False, 
                  mesh_type=3, 
                  use_global_features=True):
@@ -50,7 +50,7 @@ class Model(nn.Module):
         if self.use_global_features:
             self.learned_model = encode_process_decode.EncodeProcessDecodeAlter(
                 output_size=output_size,# 在deforming_plate中是4
-                latent_size=128,
+                latent_size=latent_size,
                 num_layers=2,
                 message_passing_steps=self.message_passing_steps,
                 message_passing_aggregator=self.message_passing_aggregator,
@@ -58,7 +58,7 @@ class Model(nn.Module):
         else:
             self.learned_model = encode_process_decode.EncodeProcessDecode(
                 output_size=output_size,# 在deforming_plate中是4
-                latent_size=128,
+                latent_size=latent_size,
                 num_layers=2,
                 message_passing_steps=self.message_passing_steps,
                 message_passing_aggregator=self.message_passing_aggregator,
