@@ -82,7 +82,7 @@ class Model(nn.Module):
 
         node_features = torch.cat((velocity, node_type), dim=-1)
 
-        global_features = torch.zeros(1,node_features.shape[1])
+        global_features = torch.zeros(1,128)
 
         cells = [inputs['triangles'],inputs['rectangles']]
         senders, receivers = common.triangles_to_edges(cells, type=3)
