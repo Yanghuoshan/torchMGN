@@ -6,7 +6,7 @@ import os
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 
 
-dl = datasets.get_dataloader_hdf5_batch("D:\project_summary\Graduation Project\\tmp\datasets_hdf5\\waterballoon_dataset",model="IncompNS",shuffle=False)
+dl = datasets.get_dataloader_hdf5_batch("D:\project_summary\Graduation Project\\tmp\datasets_hdf5\\flag_simple",model="Cloth",shuffle=False)
 # dl = datasets.get_dataloader("D:\project_summary\Graduation Project\\tmp\datasets_np\\flag_simple\\train",dataset_type="Cloth")
 dl = iter(dl)
 input = next(dl)[0] 
@@ -17,12 +17,13 @@ print(max(input["mesh_pos"][:,0]),max(input["mesh_pos"][:,1]),min(input["mesh_po
 
 # 定义点坐标
 points = input["world_pos"]
+print(points.shape)
 # print(input["world_pos"])
 # print(input["mesh_pos"])
 
 # 定义面
-triangles = input["triangles"]
-rectangles = input["rectangles"]
+# triangles = input["triangles"]
+# rectangles = input["rectangles"]
 # print(rectangles)
 # 创建一个绘图对象
 fig = plt.figure()

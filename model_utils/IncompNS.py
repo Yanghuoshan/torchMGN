@@ -29,7 +29,7 @@ from dataclasses import replace
 class Model(nn.Module):
     """Model for fluid simulation."""
 
-    def __init__(self, output_size, message_passing_aggregator='sum', message_passing_steps=15, is_use_world_edge=False, mesh_type=3):
+    def __init__(self, output_size, message_passing_aggregator='sum', message_passing_steps=15, is_use_world_edge=False, mesh_type=3, use_global_features=True):
         super(Model, self).__init__()
         self.output_size = output_size
         self._output_normalizer = normalization.Normalizer(size=output_size, name='output_normalizer')
@@ -41,15 +41,26 @@ class Model(nn.Module):
         self.message_passing_aggregator = message_passing_aggregator
         
         self.mesh_type = mesh_type
+
+        self.use_global_features = use_global_features
         
-        self.learned_model = encode_process_decode.EncodeProcessDecode(
-            output_size=output_size,# 在deforming_plate中是4
-            latent_size=128,
-            num_layers=2,
-            message_passing_steps=self.message_passing_steps,
-            message_passing_aggregator=self.message_passing_aggregator,
-            is_use_world_edge=is_use_world_edge)
-        
+        if self.use_global_features:
+            self.learned_model = encode_process_decode.EncodeProcessDecodeAlter(
+                output_size=output_size,# 在deforming_plate中是4
+                latent_size=128,
+                num_layers=2,
+                message_passing_steps=self.message_passing_steps,
+                message_passing_aggregator=self.message_passing_aggregator,
+                is_use_world_edge=is_use_world_edge)
+        else:
+            self.learned_model = encode_process_decode.EncodeProcessDecode(
+                output_size=output_size,# 在deforming_plate中是4
+                latent_size=128,
+                num_layers=2,
+                message_passing_steps=self.message_passing_steps,
+                message_passing_aggregator=self.message_passing_aggregator,
+                is_use_world_edge=is_use_world_edge)
+            
         self.noise_scale = 0.003
         self.noise_gamma = 1
         self.noise_field = ["world_pos","velocity"]
@@ -71,6 +82,8 @@ class Model(nn.Module):
 
         node_features = torch.cat((velocity, node_type), dim=-1)
 
+        global_features = torch.zeros(1,node_features.shape[1])
+
         cells = [inputs['triangles'],inputs['rectangles']]
         senders, receivers = common.triangles_to_edges(cells, type=3)
         
@@ -91,9 +104,11 @@ class Model(nn.Module):
             features=edge_features,
             receivers=receivers,
             senders=senders)
-
-        return (common.MultiGraph(node_features=node_features, edge_sets=[mesh_edges]))
-
+        if self.use_global_features:
+            return (common.MultiGraph(node_features=node_features, global_features=global_features, edge_sets=[mesh_edges]))
+        else:
+            return (common.MultiGraph(node_features=node_features, edge_sets=[mesh_edges]))
+        
     def forward(self, inputs, is_trainning, prebuild_graph=False):
         if is_trainning:
             if not prebuild_graph:
@@ -104,12 +119,7 @@ class Model(nn.Module):
             graph = self.build_graph(inputs)
             graph = self.graph_normalization(graph)
             return self._update(inputs, self.learned_model(graph))
-    
-    def forward_with_graph(self, graph, is_trainning):
-        graph = self.graph_normalization(graph)
 
-        if is_trainning:
-            return self.learned_model(graph)
         
     def _update(self, inputs, per_node_network_output):
         """Integrate model outputs."""

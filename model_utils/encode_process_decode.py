@@ -77,6 +77,132 @@ class AttentionModel(nn.Module):
         return result
 '''
 
+class GraphNetBlockWithU(nn.Module):
+    """Multi-Edge Interaction Network with residual connections."""
+
+    def __init__(self, model_fn, output_size, message_passing_aggregator, is_use_world_edge):
+        super().__init__()
+        self.mesh_edge_model = model_fn(output_size)
+        if is_use_world_edge:
+            self.world_edge_model = model_fn(output_size)
+        self.node_model = model_fn(output_size)
+        self.global_model = model_fn(output_size) # process the global u node
+        self.message_passing_aggregator = message_passing_aggregator
+
+        # self.linear_layer = nn.LazyLinear(1)
+        # self.leaky_relu = nn.LeakyReLU(negative_slope=0.2)
+
+    def _update_edge_features(self, node_features, edge_set):
+        """Aggregrates node features, and applies edge function."""
+        senders = edge_set.senders
+        receivers = edge_set.receivers
+        sender_features = torch.index_select(input=node_features, dim=0, index=senders)
+        receiver_features = torch.index_select(input=node_features, dim=0, index=receivers)
+        features = [sender_features, receiver_features, edge_set.features]
+        features = torch.cat(features, dim=-1)
+        if edge_set.name == "mesh_edges":
+            return self.mesh_edge_model(features)
+        else:
+            return self.world_edge_model(features)
+
+    def unsorted_segment_operation(self, data, segment_ids, num_segments, operation):
+        """
+        Computes the sum along segments of a tensor. Analogous to tf.unsorted_segment_sum.
+
+        :param data: A tensor whose segments are to be summed.
+        :param segment_ids: The segment indices tensor.
+        :param num_segments: The number of segments.
+        :return: A tensor of same data type as the data argument.
+        """
+        assert all([i in data.shape for i in segment_ids.shape]), "segment_ids.shape should be a prefix of data.shape"
+
+        # segment_ids is a 1-D tensor repeat it to have the same shape as data
+        if len(segment_ids.shape) == 1:
+            s = torch.prod(torch.tensor(data.shape[1:])).long().to(segment_ids.device)
+            segment_ids = segment_ids.repeat_interleave(s).view(segment_ids.shape[0], *data.shape[1:])
+
+        assert data.shape == segment_ids.shape, "data.shape and segment_ids.shape should be equal"
+
+        shape = [num_segments] + list(data.shape[1:])
+        result = torch.zeros(*shape)
+        if operation == 'sum':
+            result = torch_scatter.scatter_add(data.float(), segment_ids, dim=0, dim_size=num_segments)
+        elif operation == 'max':
+            result, _ = torch_scatter.scatter_max(data.float(), segment_ids, dim=0, dim_size=num_segments)
+        elif operation == 'mean':
+            result = torch_scatter.scatter_mean(data.float(), segment_ids, dim=0, dim_size=num_segments)
+        elif operation == 'min':
+            result, _ = torch_scatter.scatter_min(data.float(), segment_ids, dim=0, dim_size=num_segments)
+        elif operation == 'std':
+            result = torch_scatter.scatter_std(data.float(), segment_ids, out=result, dim=0, dim_size=num_segments)
+        else:
+            raise Exception('Invalid operation type!')
+        result = result.type(data.dtype)
+        return result
+
+    def _update_node_features(self, global_features, node_features, edge_sets):
+        """Aggregrates edge features, and applies node function."""
+        num_nodes = node_features.shape[0]
+        # 扩展 global_features 到与 node_features 相同的第一个维度
+        expanded_global = global_features.expand(num_nodes, -1)
+        # 按特征维度拼接
+        combined = torch.cat((node_features, expanded_global), dim=1)
+
+        features = [combined]
+        for edge_set in edge_sets:
+            if self.message_passing_aggregator == 'pna':
+                features.append(
+                    self.unsorted_segment_operation(edge_set.features, edge_set.receivers,
+                                                    num_nodes, operation='sum'))
+                features.append(
+                    self.unsorted_segment_operation(edge_set.features, edge_set.receivers,
+                                                    num_nodes, operation='mean'))
+                features.append(
+                    self.unsorted_segment_operation(edge_set.features, edge_set.receivers,
+                                                    num_nodes, operation='max'))
+                features.append(
+                    self.unsorted_segment_operation(edge_set.features, edge_set.receivers,
+                                                    num_nodes, operation='min'))
+            else:
+                features.append(
+                    self.unsorted_segment_operation(edge_set.features, edge_set.receivers, num_nodes,
+                                                    operation=self.message_passing_aggregator))
+        features = torch.cat(features, dim=-1)
+        return self.node_model(features)
+
+    def _update_global_features(self, global_features, node_features):
+        global_features = global_features + torch.sum(node_features,dim=0)
+        return self.global_model(global_features)
+
+    def forward(self, graph, mask=None):
+        """Applies GraphNetBlock and returns updated MultiGraph."""
+        # apply edge functions
+        new_edge_sets = []
+        for edge_set in graph.edge_sets:
+            updated_features = self._update_edge_features(graph.node_features, edge_set)
+            # new_edge_sets.append(edge_set._replace(features=updated_features)) # namedtuple
+            new_edge_sets.append(replace(edge_set, features=updated_features))
+
+        # apply node function
+        new_node_features = self._update_node_features(graph.global_features, graph.node_features, new_edge_sets)
+
+        # apply global function 
+        new_global_features = self._update_global_features(graph.global_features, graph.node_features)
+
+        # add residual connections
+        new_node_features = new_node_features + graph.node_features
+        new_global_features = new_global_features + graph.global_features
+        if mask is not None:
+            mask = mask.repeat(new_node_features.shape[-1])
+            mask = mask.view(new_node_features.shape[0], new_node_features.shape[1])
+            new_node_features = torch.where(mask, new_node_features, graph.node_features)
+        new_edge_sets = [replace(es, features=es.features + old_es.features)
+                         for es, old_es in zip(new_edge_sets, graph.edge_sets)]
+        # new_edge_sets = [es._replace(features=es.features + old_es.features)
+        #                  for es, old_es in zip(new_edge_sets, graph.edge_sets)] # namedtuple
+        return MultiGraph(node_features=new_node_features, global_features=new_global_features, edge_sets=new_edge_sets)
+
+
 class GraphNetBlock(nn.Module):
     """Multi-Edge Interaction Network with residual connections."""
 
@@ -186,7 +312,7 @@ class GraphNetBlock(nn.Module):
                          for es, old_es in zip(new_edge_sets, graph.edge_sets)]
         # new_edge_sets = [es._replace(features=es.features + old_es.features)
         #                  for es, old_es in zip(new_edge_sets, graph.edge_sets)] # namedtuple
-        return MultiGraph(new_node_features, new_edge_sets)
+        return MultiGraph(node_features=new_node_features, edge_sets=new_edge_sets)
 
 
 class Encoder(nn.Module):
@@ -216,7 +342,7 @@ class Encoder(nn.Module):
                 latent = self.world_edge_model(feature)
                 # new_edges_sets.append(edge_set._replace(features=latent))
                 new_edges_sets.append(replace(edge_set, features=latent))
-        return MultiGraph(node_latents, new_edges_sets)
+        return MultiGraph(node_features=node_latents, global_features=graph.global_features, edge_sets=new_edges_sets)
 
 
 class Decoder(nn.Module):
@@ -295,3 +421,70 @@ class EncodeProcessDecode(nn.Module):
         latent_graph = self.encoder(graph)
         latent_graph = self.processor(latent_graph)
         return self.decoder(latent_graph)
+    
+
+class ProcessorAlter(nn.Module):
+    '''
+    This class takes the nodes with the most influential feature (sum of square)
+    The the chosen numbers of nodes in each ripple will establish connection(features and distances) with the most influential nodes and this connection will be learned
+    Then the result is add to output latent graph of encoder and the modified latent graph will be feed into original processor
+
+    Option: choose whether to normalize the high rank node connection
+    '''
+
+    def __init__(self, make_mlp, output_size, message_passing_steps, message_passing_aggregator, is_use_world_edge):
+        super().__init__()
+        self.graphnet_blocks = nn.ModuleList()
+        for index in range(message_passing_steps):
+            self.graphnet_blocks.append(GraphNetBlockWithU(model_fn=make_mlp, output_size=output_size,
+                                                      message_passing_aggregator=message_passing_aggregator,
+                                                      is_use_world_edge=is_use_world_edge
+                                                    ))
+
+    def forward(self, latent_graph, normalized_adj_mat=None, mask=None):
+        for graphnet_block in self.graphnet_blocks:
+            if mask is not None:
+                latent_graph = graphnet_block(latent_graph, mask)
+            else:
+                latent_graph = graphnet_block(latent_graph)
+        return latent_graph
+
+class EncodeProcessDecodeAlter(nn.Module):
+    """Encode-Process-Decode GraphNet model."""
+
+    def __init__(self,
+                 output_size,
+                 latent_size,
+                 num_layers,
+                 message_passing_aggregator, 
+                 message_passing_steps,
+                 is_use_world_edge):
+        super().__init__()
+        self._latent_size = latent_size
+        self._output_size = output_size
+        self._num_layers = num_layers
+        self._message_passing_steps = message_passing_steps
+        self._message_passing_aggregator = message_passing_aggregator
+        
+        self.encoder = Encoder(make_mlp=self._make_mlp, latent_size=self._latent_size, is_use_world_edge=is_use_world_edge)
+        self.processor = ProcessorAlter(make_mlp=self._make_mlp, output_size=self._latent_size,
+                                   message_passing_steps=self._message_passing_steps,
+                                   message_passing_aggregator=self._message_passing_aggregator,
+                                   is_use_world_edge=is_use_world_edge)
+        self.decoder = Decoder(make_mlp=functools.partial(self._make_mlp, layer_norm=False),
+                               output_size=self._output_size)
+
+    def _make_mlp(self, output_size, layer_norm=True):
+        """Builds an MLP."""
+        widths = [self._latent_size] * self._num_layers + [output_size]
+        network = LazyMLP(widths)
+        if layer_norm:
+            network = nn.Sequential(network, nn.LayerNorm(normalized_shape=widths[-1]))
+        return network
+
+    def forward(self, graph):
+        """Encodes and processes a multigraph, and returns node features."""
+        latent_graph = self.encoder(graph)
+        latent_graph = self.processor(latent_graph)
+        return self.decoder(latent_graph)
+

@@ -54,10 +54,12 @@ class EdgeSet:
 @dataclass
 class MultiGraph:
     node_features:torch.Tensor
+    global_features:torch.Tensor
     edge_sets:list
 
     def to(self, device):
         self.node_features = self.node_features.to(device)
+        self.global_features = self.global_features.to(device)
         for es in self.edge_sets:
             es = es.to(device)
         return self

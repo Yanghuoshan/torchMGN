@@ -13,6 +13,10 @@
 
 模型测试，还在施工
 
+## rollout_test_2.py
+
+模型效果渲染
+
 ## datasets_utils
 
 |Files     |Description|
@@ -36,6 +40,7 @@
 |common.py|包含对于点类型的定义，基础图和边集dataclass的定义，将meshes转换成edges的算法,建图算法。|
 |HyperEl.py|用于弹性材料的模型，其中规定了如何构造图数据，以及用于此模型的损失函数。|
 |Cloth.py|用于布料的模型，其中规定了如何构造图数据，以及用于此模型的损失函数，支持用图或者是字典进行训练。|
+|IncompNS.py|用于流固耦合的模型，采用了动态网格的欧拉系统，可选新的GraphNetBlockWithU模块|
 |normalization.py|用于数据归一化的组件。|
 |encode_process_decode.py|包含了主体的 encoder_processor_decoder 框架，以及graphnet的实现，sigmoid激活函数不收敛，relu收敛。 |
 
