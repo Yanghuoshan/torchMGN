@@ -50,7 +50,7 @@ class Model(nn.Module):
         
         if self.use_global_features:
             self.learned_model = encode_process_decode.EncodeProcessDecodeAlter(
-                output_size=output_size,# 在deforming_plate中是4
+                output_size=output_size,
                 latent_size=latent_size,
                 num_layers=2,
                 message_passing_steps=self.message_passing_steps,
@@ -58,7 +58,7 @@ class Model(nn.Module):
                 is_use_world_edge=is_use_world_edge)
         else:
             self.learned_model = encode_process_decode.EncodeProcessDecode(
-                output_size=output_size,# 在deforming_plate中是4
+                output_size=output_size,
                 latent_size=latent_size,
                 num_layers=2,
                 message_passing_steps=self.message_passing_steps,
