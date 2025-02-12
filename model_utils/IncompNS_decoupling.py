@@ -46,6 +46,7 @@ class Model(nn.Module):
         self.mesh_type = mesh_type
 
         self.use_global_features = use_global_features
+        self.latent_size = latent_size
         
         if self.use_global_features:
             self.learned_model1 = encode_process_decode.EncodeProcessDecodeAlter(
@@ -99,7 +100,7 @@ class Model(nn.Module):
 
         node_features = torch.cat((velocity, node_type), dim=-1)
 
-        global_features = torch.zeros(1,128)
+        global_features = torch.zeros(1,self.latent_size)
 
         cells = [inputs['triangles'],inputs['rectangles']]
         senders, receivers = common.triangles_to_edges(cells, type=3)
