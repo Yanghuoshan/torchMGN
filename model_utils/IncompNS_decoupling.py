@@ -177,7 +177,8 @@ class Model(nn.Module):
         self._output_normalizer.to(device)
         self._mesh_edge_normalizer.to(device)
         self._node_normalizer.to(device)
-        self.learned_model.to(device)
+        self.learned_model1.to(device)
+        self.learned_model2.to(device)
         return self
 
     def evaluate(self):
