@@ -749,6 +749,108 @@ class IncompNS_single_dataset_hdf5(torch.utils.data.Dataset): # use the world fi
         target = torch.concat((target1, target2), dim=1) 
 
         return [graph, target, new_dict['node_type']]
+    
+
+class CFD_single_dataset_hdf5(torch.utils.data.Dataset): # use the world field here
+    def __init__(self, path, prebuild_graph_fn = None, add_noise_fn = None):
+        self.path = path
+        self.meta = json.loads(open(os.path.join(path, 'metadata.json')).read())
+        self.files = self.meta['files']
+        self.num_samples = sum(self.files[f] - 2 for f in self.files) # 二阶模型
+        self.add_noise_fn = add_noise_fn
+        self.prebuild_graph_fn = prebuild_graph_fn
+
+
+        self.hdf5_dataset = h5py.File(os.path.join(path, 'dataset.h5'), 'r')
+
+        if prebuild_graph_fn is not None:
+            self.return_item = self.return_graph
+        else:
+            self.return_item = self.return_dict
+
+    @property
+    def avg_nodes_per_sample(self):
+        total_nodes = 0
+        total_samples = 0
+        for fname, num_steps in self.files.items():
+            data = self.hdf5_dataset[fname]
+            total_nodes += data['mesh_pos'][:].shape[1] * (num_steps - 1)
+            total_samples += (num_steps - 1)
+
+        return total_nodes / total_samples
+
+
+    def idx_to_file(self, sample_id):
+        for fname, num_steps in self.files.items():
+            if sample_id < (num_steps - 2): return fname, sample_id
+            else: sample_id -= (num_steps - 2)
+        raise IndexError()
+
+    def __len__(self): return self.num_samples
+
+    def __getitem__(self, idx : int) -> dict:
+        fname, sid = self.idx_to_file(idx)
+        data = self.hdf5_dataset[fname]
+
+        return self.return_item(data, sid)
+    
+    def return_dict(self, data, sid):
+        new_dict =  dict(
+            triangles=torch.LongTensor(data['triangles'][sid, ...]),
+            rectangles=torch.LongTensor(data['rectangles'][sid, ...]),
+            node_type=torch.LongTensor(data['node_type'][sid, ...]),
+            mesh_pos=torch.Tensor(data['mesh_pos'][sid, ...]),
+            pre_world_pos=torch.Tensor(data['world_pos'][sid, ...]),
+            world_pos=torch.Tensor(data['world_pos'][sid + 1, ...]),
+            target_world_pos=torch.Tensor(data['world_pos'][sid + 2, ...]),
+            velocity=torch.Tensor(data['velocity'][sid + 1, ...]).unsqueeze_(-1),
+            target_velocity=torch.Tensor(data['velocity'][sid + 2, ...]).unsqueeze_(-1),
+        )
+
+
+        # if self.alter:
+        #     value = NodeType.OBSTACLE
+        #     indices = torch.nonzero(new_dict["node_type"].squeeze() == value).squeeze()
+        #     new_dict["world_pos"][indices] = torch.Tensor(data['world_pos'][sid + 10, ...][indices])
+        
+        if self.add_noise_fn is not None:
+            new_dict = self.add_noise_fn(new_dict)    
+        
+        return new_dict
+        
+
+    def return_graph(self, data, sid):
+        new_dict = new_dict =  dict(
+            triangles=torch.LongTensor(data['triangles'][sid, ...]),
+            rectangles=torch.LongTensor(data['rectangles'][sid, ...]),
+            node_type=torch.LongTensor(data['node_type'][sid, ...]),
+            mesh_pos=torch.Tensor(data['mesh_pos'][sid, ...]),
+            prev_world_pos=torch.Tensor(data['world_pos'][sid, ...]),
+            world_pos=torch.Tensor(data['world_pos'][sid + 1, ...]),
+            target_world_pos=torch.Tensor(data['world_pos'][sid + 2, ...]),
+            velocity=torch.Tensor(data['velocity'][sid + 1, ...]).unsqueeze_(-1),
+            target_velocity=torch.Tensor(data['velocity'][sid + 2, ...]).unsqueeze_(-1),
+        )
+  
+        if self.add_noise_fn is not None:
+            new_dict = self.add_noise_fn(new_dict)   
+             
+        graph = self.prebuild_graph_fn(new_dict)
+
+        world_pos = new_dict['world_pos']
+        prev_world_pos = new_dict['prev_world_pos']
+        target_world_pos = new_dict['target_world_pos']
+        
+        expansion_acceleration = target_world_pos - 2 * world_pos + prev_world_pos
+
+        velocity = new_dict['velocity']
+        target_velocity = new_dict['target_velocity']
+
+        acceleration = target_velocity-velocity
+
+        target = torch.concat((expansion_acceleration, acceleration), dim=1) 
+
+        return [graph, target, new_dict['node_type']]
 
 def my_collate_fn(batch): # cumstom collate fn
         # batch [data1, data2...]
@@ -898,6 +1000,8 @@ def get_dataloader_hdf5_batch(path,
         Datasets = Easy_HyperEl_single_dataset_hdf5
     elif model == "IncompNS":
         Datasets = IncompNS_single_dataset_hdf5
+    elif model == "CFD":
+        Datasets == CFD_single_dataset_hdf5
     else:
         raise ValueError("The dataset type doesn't exist.")
     
