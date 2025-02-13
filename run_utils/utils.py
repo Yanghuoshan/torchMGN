@@ -258,15 +258,15 @@ def learner(model, loss_fn, run_step_config, device):
                     break
 
                 # Adjust the lr when the trainning step 
-                if ((step+1) > (run_step_config['max_steps']*0.6)) and scheduler_flag == 0:
+                if ((step+1) > (run_step_config['max_steps']*0.75)) and scheduler_flag == 0:
                     scheduler.step()
                     root_logger.info("Call scheduler in step " + str(step + 1))
                     scheduler_flag += 1
 
-                if ((step+1) > (run_step_config['max_steps']*0.8)) and scheduler_flag == 1:
-                    scheduler.step()
-                    root_logger.info("Call scheduler in step " + str(step + 1))
-                    scheduler_flag += 1
+                # if ((step+1) > (run_step_config['max_steps']*0.8)) and scheduler_flag == 1:
+                #     scheduler.step()
+                #     root_logger.info("Call scheduler in step " + str(step + 1))
+                #     scheduler_flag += 1
                 
                 # memory cleaning
                 # if ((step+1) % 1000) == 0:
