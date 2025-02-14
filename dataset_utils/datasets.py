@@ -990,9 +990,9 @@ class Inflaction_single_dataset_hdf5(torch.utils.data.Dataset):
             node_type=torch.LongTensor(data['node_type'][sid, ...]),
             mesh_pos=torch.Tensor(data['mesh_pos'][sid, ...]),
             world_pos=torch.Tensor(data['world_pos'][sid, ...]),
-            velocity=torch.Tensor(data['velocity'][sid, ...]).unsqueeze_(-1),
             target_world_pos=torch.Tensor(data['world_pos'][sid + 1, ...]),
-            target_velocity=torch.Tensor(data['velocity'][sid + 1, ...]).unsqueeze_(-1),
+            pressure=torch.Tensor(data['pressure'][sid, ...]),
+            target_pressure=torch.Tensor(data['pressure'][sid + 1, ...])
         )
   
         if self.add_noise_fn is not None:
