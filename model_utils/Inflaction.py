@@ -185,20 +185,20 @@ def loss_fn(inputs, network_output, model):
     node_type = inputs['node_type'].to(network_output.device)
     loss_mask1 = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.NORMAL.value], device=network_output.device).int())
     loss_mask2 = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.WALL_BOUNDARY.value], device=network_output.device).int())
-    combine_loss_mark = loss_mask1 | loss_mask2
+    # combine_loss_mark = loss_mask1 | loss_mask2
     # 新增的条件：node_type 为 symmetry 的点
     loss_mask3 = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.SYMMETRY.value], device=network_output.device).int())
-
+    combine_loss_mark = loss_mask1 | loss_mask2 | loss_mask3
     # 原始 error 计算
     error = torch.sum((target_normalized - network_output) ** 2, dim=1)
 
     # 对于 node_type 为 symmetry 的点，只计算第二维的 loss
-    special_error = (target_normalized[loss_mask3, 1] - network_output[loss_mask3, 1]) ** 2
+    # special_error = (target_normalized[loss_mask3, 1] - network_output[loss_mask3, 1]) ** 2
 
     # 将 special_error 应用于 error 中对应的位置
-    error[loss_mask3] = special_error
+    # error[loss_mask3] = special_error
 
-    loss = torch.mean(error[combine_loss_mark | loss_mask3])
+    loss = torch.mean(error[combine_loss_mark])
     return loss
 
 
@@ -207,18 +207,18 @@ def loss_fn_alter(target, network_output, node_type, model):
     target_normalized = target_normalizer(target)
     loss_mask1 = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.NORMAL.value], device=network_output.device).int())
     loss_mask2 = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.WALL_BOUNDARY.value], device=network_output.device).int())
-    combine_loss_mark = loss_mask1 | loss_mask2
+    # combine_loss_mark = loss_mask1 | loss_mask2
     # 新增的条件：node_type 为 symmetry 的点
     loss_mask3 = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.SYMMETRY.value], device=network_output.device).int())
-
+    combine_loss_mark = loss_mask1 | loss_mask2 | loss_mask3
     # 原始 error 计算
     error = torch.sum((target_normalized - network_output) ** 2, dim=1)
 
     # 对于 node_type 为 symmetry 的点，只计算第二维和第三维的 loss
-    special_error = (target_normalized[loss_mask3, 1] - network_output[loss_mask3, 1]) ** 2
+    # special_error = (target_normalized[loss_mask3, 1] - network_output[loss_mask3, 1]) ** 2
 
     # 将 special_error 应用于 error 中对应的位置
-    error[loss_mask3] = special_error
+    # error[loss_mask3] = special_error
 
     loss = torch.mean(error[combine_loss_mark | loss_mask3])
     return loss
