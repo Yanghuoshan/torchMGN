@@ -1164,7 +1164,7 @@ def get_dataloader_hdf5_batch(path,
     elif model == "CFD":
         Datasets = CFD_single_dataset_hdf5
     elif model == "Inflaction":
-        Datasets == Inflaction_single_dataset_hdf5
+        Datasets = Inflaction_single_dataset_hdf5
     else:
         raise ValueError("The dataset type doesn't exist.")
     
