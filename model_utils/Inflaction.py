@@ -243,9 +243,9 @@ def loss_fn_alter(init_graph:common.MultiGraph, target, network_output, node_typ
     edge_length = torch.norm(relative_world_pos, dim=-1, keepdim=True)
     new_edge_length = torch.norm(new_relative_world_pos, dim=-1, keepdim=True)
     
-    R = torch.sum(new_edge_length/edge_length)
+    R = torch.mean(new_edge_length/edge_length)
 
-    loss = torch.mean(error[combine_loss_mark]) + (R-1)**2
+    loss = torch.mean(error[combine_loss_mark]) + 0.01*(R-1)**2
     return loss
 
 
