@@ -47,6 +47,8 @@ class Model(nn.Module):
 
         self.use_global_features = use_global_features
         self.latent_size = latent_size
+
+        self.world_pos = torch.Tensor([])
         self.senders = torch.Tensor([])
         self.receivers = torch.Tensor([])
         
@@ -96,8 +98,10 @@ class Model(nn.Module):
 
         cells = [inputs['triangles'],inputs['rectangles']]
         senders, receivers = common.triangles_to_edges(cells, type=3)
+
         self.senders = senders
         self.receivers = receivers
+        self.world_pos = inputs['world_pos']
 
         mesh_pos = inputs['mesh_pos']
         relative_world_pos = (torch.index_select(input=inputs['world_pos'], dim=0, index=senders) -
@@ -121,7 +125,7 @@ class Model(nn.Module):
             return (common.MultiGraph(node_features=node_features, edge_sets=[mesh_edges]))
     
     def get_connectivity(self):
-        return self.senders, self.receivers   
+        return self.senders, self.receivers, self.world_pos   
     
     def forward(self, inputs, is_trainning, prebuild_graph=False):
         if is_trainning:
@@ -203,9 +207,9 @@ def loss_fn(inputs, network_output, model):
     # error[loss_mask3] = special_error
 
     # 在loss中加入抑制变形项
+    senders, receivers, world_pos = model.get_connectivity()
     update_tensor = model.get_output_normalizer().inverse(network_output)
     new_world_pos = world_pos + update_tensor
-    senders, receivers = model.get_connectivity()
     relative_world_pos = (torch.index_select(input=world_pos, dim=0, index=senders) -
                           torch.index_select(input=world_pos, dim=0, index=receivers))
     new_relative_world_pos = (torch.index_select(input=new_world_pos, dim=0, index=senders) -
@@ -236,7 +240,19 @@ def loss_fn_alter(target, network_output, node_type, model):
     # 将 special_error 应用于 error 中对应的位置
     # error[loss_mask3] = special_error
 
-    loss = torch.mean(error[combine_loss_mark | loss_mask3])
+    # 在loss中加入抑制变形项
+    senders, receivers, world_pos = model.get_connectivity()
+    update_tensor = model.get_output_normalizer().inverse(network_output)
+    new_world_pos = world_pos + update_tensor
+    relative_world_pos = (torch.index_select(input=world_pos, dim=0, index=senders) -
+                          torch.index_select(input=world_pos, dim=0, index=receivers))
+    new_relative_world_pos = (torch.index_select(input=new_world_pos, dim=0, index=senders) -
+                              torch.index_select(input=new_world_pos, dim=0, index=receivers))
+    edge_length = torch.norm(relative_world_pos, dim=-1, keepdim=True)
+    new_edge_length = torch.norm(new_relative_world_pos, dim=-1, keepdim=True)
+    R = torch.sum(new_edge_length/edge_length)
+
+    loss = torch.mean(error[combine_loss_mark]) + (R-1)**2
     return loss
 
 

@@ -1048,7 +1048,7 @@ class Inflaction_single_dataset_hdf5(torch.utils.data.Dataset):
         
 
     def return_graph(self, data, sid):
-        new_dict = new_dict =  dict(
+        new_dict = dict(
             triangles=torch.LongTensor(data['triangles'][sid, ...]),
             rectangles=torch.LongTensor(data['rectangles'][sid, ...]),
             node_type=torch.LongTensor(data['node_type'][sid, ...]),
