@@ -100,11 +100,12 @@ class Model(nn.Module):
         senders, receivers = common.triangles_to_edges(cells, type=3)
 
         global save_senders
-        global save_reveivers
-        global save_world_pos
         save_senders = senders[:]
+        global save_reveivers
         save_reveivers = receivers[:]
+        global save_world_pos
         save_world_pos = inputs['world_pos'][:]
+
 
         mesh_pos = inputs['mesh_pos']
         relative_world_pos = (torch.index_select(input=inputs['world_pos'], dim=0, index=senders) -
@@ -209,11 +210,12 @@ def loss_fn(inputs, network_output, model):
 
     # 在loss中加入抑制变形项
     global save_senders
-    global save_reveivers
-    global save_world_pos
     senders = save_senders
+    global save_reveivers
     receivers = save_reveivers
+    global save_world_pos
     world_pos = save_world_pos
+    
     update_tensor = model.get_output_normalizer().inverse(network_output)
     new_world_pos = world_pos + update_tensor
     relative_world_pos = (torch.index_select(input=world_pos, dim=0, index=senders) -
@@ -248,11 +250,12 @@ def loss_fn_alter(target, network_output, node_type, model):
 
     # 在loss中加入抑制变形项
     global save_senders
-    global save_reveivers
-    global save_world_pos
     senders = save_senders
+    global save_reveivers
     receivers = save_reveivers
+    global save_world_pos
     world_pos = save_world_pos
+    
     update_tensor = model.get_output_normalizer().inverse(network_output)
     new_world_pos = world_pos + update_tensor
     relative_world_pos = (torch.index_select(input=world_pos, dim=0, index=senders) -
