@@ -53,9 +53,9 @@ class EdgeSet:
 
 @dataclass
 class MultiGraph:
-    node_features:torch.Tensor
+    node_features:torch.Tensor = field(default_factory=lambda: torch.tensor([]))
     global_features:torch.Tensor = field(default_factory=lambda: torch.tensor([]))
-    edge_sets:list
+    edge_sets:list = field(default_factory=list)
 
     def to(self, device):
         self.node_features = self.node_features.to(device)
