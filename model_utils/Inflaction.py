@@ -101,7 +101,7 @@ class Model(nn.Module):
 
         self.senders = senders
         self.receivers = receivers
-        self.world_pos = inputs['world_pos']
+        self.world_pos = inputs['world_pos'][:]
 
         mesh_pos = inputs['mesh_pos']
         relative_world_pos = (torch.index_select(input=inputs['world_pos'], dim=0, index=senders) -
