@@ -487,4 +487,7 @@ class EncodeProcessDecodeAlter(nn.Module):
         latent_graph = self.encoder(graph)
         latent_graph = self.processor(latent_graph)
         return self.decoder(latent_graph)
+    
+
+    
 

@@ -43,6 +43,7 @@
 |IncompNS.py|用于流固耦合的模型，采用了动态网格的欧拉系统，可选新的GraphNetBlockWithU模块|
 |normalization.py|用于数据归一化的组件。|
 |encode_process_decode.py|包含了主体的 encoder_processor_decoder 框架，以及graphnet的实现，sigmoid激活函数不收敛，relu收敛。 |
+|Inflaction.py|基于当前时刻的速度和压力，预测下一时刻的速度和压力，基于当前时刻的world_pos和下一时刻的压力减去当前时刻的压力，即压力的变化率|
 
 ## render_utils
 

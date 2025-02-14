@@ -29,14 +29,14 @@ from dataclasses import replace
 class Model(nn.Module):
     """Model for fluid simulation."""
 
-    def __init__(self, output_size, message_passing_aggregator='sum', message_passing_steps=15, latent_size=256,
+    def __init__(self, output_size, message_passing_aggregator='sum', message_passing_steps=15, latent_size=128,
                  is_use_world_edge=False, 
                  mesh_type=3, 
                  use_global_features=True):
         super(Model, self).__init__()
         self.output_size = output_size
         self._output_normalizer = normalization.Normalizer(size=output_size, name='output_normalizer')
-        self._mesh_edge_normalizer = normalization.Normalizer(size=(output_size-1)*2+2, name='mesh_edge_normalizer')
+        self._mesh_edge_normalizer = normalization.Normalizer(size=output_size*2+2, name='mesh_edge_normalizer')
         # self._world_edge_normalizer = normalization.Normalizer(size=4, name='world_edge_normalizer') # abandon temporarily
         self._node_normalizer = normalization.Normalizer(size=1 + common.NodeType.SIZE, name='node_normalizer')
 
@@ -67,7 +67,7 @@ class Model(nn.Module):
             
         self.noise_scale = 0.003
         self.noise_gamma = 1
-        self.noise_field = ["world_pos","velocity"]
+        self.noise_field = "world_pos"
 
     def graph_normalization(self, graph):
         new_mesh_edges = replace(graph.edge_sets[0],features = self._mesh_edge_normalizer(graph.edge_sets[0].features))
@@ -81,10 +81,14 @@ class Model(nn.Module):
     def build_graph(self, inputs):
         """Builds input graph."""
         node_type = inputs['node_type']
-        velocity = inputs['velocity']
+        
+        pressure_increase = inputs['target_pressure']-inputs['pressure']
+        num_nodes = node_type.shape[0]
+        expanded_pressure_increase = pressure_increase.expand(num_nodes, -1)
+
         node_type = F.one_hot(node_type[:, 0].to(torch.int64), common.NodeType.SIZE)
 
-        node_features = torch.cat((velocity, node_type), dim=-1)
+        node_features = torch.cat((expanded_pressure_increase, node_type), dim=-1)
 
         global_features = torch.zeros(1,self.latent_size, device=node_features.device)
 
@@ -168,17 +172,11 @@ class Model(nn.Module):
 def loss_fn(inputs, network_output, model):
     world_pos = inputs['world_pos']
     target_world_pos = inputs['target_world_pos']
-    velocity = inputs['velocity']
-    target_velocity = inputs['target_velocity']
         
     cur_position = world_pos
     target_position = target_world_pos
-    target1 = target_position - cur_position
+    target = target_position - cur_position
 
-    cur_velocity = velocity
-    target2 = target_velocity - cur_velocity
-
-    target = torch.concat((target1, target2))
     target = target.to(network_output.device)
     target_normalized = model.get_output_normalizer()(target)
 
@@ -194,8 +192,8 @@ def loss_fn(inputs, network_output, model):
     # 原始 error 计算
     error = torch.sum((target_normalized - network_output) ** 2, dim=1)
 
-    # 对于 node_type 为 symmetry 的点，只计算第二维和第三维的 loss
-    special_error = torch.sum((target_normalized[loss_mask3, 1:3] - network_output[loss_mask3, 1:3]) ** 2, dim=1)
+    # 对于 node_type 为 symmetry 的点，只计算第二维的 loss
+    special_error = (target_normalized[loss_mask3, 1] - network_output[loss_mask3, 1]) ** 2
 
     # 将 special_error 应用于 error 中对应的位置
     error[loss_mask3] = special_error
@@ -217,7 +215,7 @@ def loss_fn_alter(target, network_output, node_type, model):
     error = torch.sum((target_normalized - network_output) ** 2, dim=1)
 
     # 对于 node_type 为 symmetry 的点，只计算第二维和第三维的 loss
-    special_error = torch.sum((target_normalized[loss_mask3, 1:3] - network_output[loss_mask3, 1:3]) ** 2, dim=1)
+    special_error = (target_normalized[loss_mask3, 1] - network_output[loss_mask3, 1]) ** 2
 
     # 将 special_error 应用于 error 中对应的位置
     error[loss_mask3] = special_error

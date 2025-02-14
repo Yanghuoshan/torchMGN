@@ -6,11 +6,11 @@ import pickle
 from absl import app
 from absl import flags
 import torch
-from model_utils import HyperEl,Cloth,Easy_HyperEl
+from model_utils import HyperEl,Cloth,Easy_HyperEl,IncompNS
 from model_utils import deform_eval
 from model_utils import common
 from model_utils.encode_process_decode import init_weights
-from render_utils import Cloth_render, HyperEl_render, Easy_HyperEl_render
+from render_utils import Cloth_render, HyperEl_render, Easy_HyperEl_render, IncompNS_render
 from run_utils.utils import *
 import logging
 import numpy as np
@@ -30,9 +30,9 @@ device = torch.device('cuda')
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 
 
-last_run_dir = "D:\project_summary\Graduation Project\\torchMGN\output\Easy_HyperEl\Wed-Feb--5-01-18-25-2025"
+last_run_dir = "D:\\project_summary\\Graduation Project\\torchMGN\output\IncompNS\Thu-Feb-13-01-15-17-2025"
 # ds_dir = "D:\project_summary\Graduation Project\\tmp\datasets_np\\flag_simple"
-ds_dir ="D:\project_summary\Graduation Project\\tmp\datasets_hdf5\my_dataset"
+ds_dir ="D:\project_summary\Graduation Project\\tmp\datasets_hdf5\symmetry_waterballoon"
 trajectory_index = 7
 split = "train"
 
@@ -47,19 +47,23 @@ elif run_step_config['model'] == 'HyperEl':
     render = HyperEl_render.render
 elif run_step_config['model']== 'Easy_HyperEl':
     render = Easy_HyperEl_render.render
+elif run_step_config['model']== 'IncompNS':
+    render = IncompNS_render.render
 
 
 M = eval(run_step_config['model'])
 model = M.Model(run_step_config['output_size'], 
-                                                 run_step_config['message_passing_aggregator'],
-                                                 run_step_config['message_passing_steps'],
-                                                )
+                run_step_config['message_passing_aggregator'],
+                run_step_config['message_passing_steps'],
+                run_step_config['latent_size']
+                )
 last_run_step_dir = find_nth_latest_run_step(last_run_dir, 1)
 model.load_model(os.path.join(last_run_step_dir, 'checkpoint', "model_checkpoint"))
 print("Load model:",os.path.join(last_run_step_dir, 'checkpoint', "model_checkpoint"))
 # model.load_model(os.path.join(last_run_step_dir, 'checkpoint', "model_checkpoint"))
 
 model.to(device)
+print(run_step_config['latent_size'])
 rollout = M.rollout
 
 is_data_graph = False
@@ -96,4 +100,11 @@ elif run_step_config['model'] == 'Easy_HyperEl':
         plt.show()
     # anim = render(new_trajectory, skip=5)
     # anim.save('animation5.gif', writer='pillow')
+elif run_step_config['model'] == 'IncompNS':
+    trajectory = iter(dl)
+    new_trajectory =rollout(model,trajectory,140)
+    print(new_trajectory["world_pos"].size(),new_trajectory["triangles"].size(),new_trajectory["rectangles"].size(),new_trajectory["velocity"].size())
+    anim = render(new_trajectory,skip=5)
+    anim.save('IncompNS1.gif', writer='pillow')
+
 
