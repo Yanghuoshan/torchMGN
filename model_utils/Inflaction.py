@@ -26,6 +26,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 from dataclasses import replace
 
+save_senders = torch.Tensor([])
+save_reveivers = torch.Tensor([])
+save_world_pos = torch.Tensor([])
+
 class Model(nn.Module):
     """Model for fluid simulation."""
 
@@ -47,10 +51,6 @@ class Model(nn.Module):
 
         self.use_global_features = use_global_features
         self.latent_size = latent_size
-
-        self.world_pos = torch.Tensor([])
-        self.senders = torch.Tensor([])
-        self.receivers = torch.Tensor([])
         
         if self.use_global_features:
             self.learned_model = encode_process_decode.EncodeProcessDecodeAlter(
@@ -99,9 +99,12 @@ class Model(nn.Module):
         cells = [inputs['triangles'],inputs['rectangles']]
         senders, receivers = common.triangles_to_edges(cells, type=3)
 
-        self.senders = senders
-        self.receivers = receivers
-        self.world_pos = inputs['world_pos'][:]
+        global save_senders
+        global save_reveivers
+        global save_world_pos
+        save_senders = senders[:]
+        save_reveivers = receivers[:]
+        save_world_pos = inputs['world_pos'][:]
 
         mesh_pos = inputs['mesh_pos']
         relative_world_pos = (torch.index_select(input=inputs['world_pos'], dim=0, index=senders) -
@@ -124,8 +127,6 @@ class Model(nn.Module):
         else:
             return (common.MultiGraph(node_features=node_features, edge_sets=[mesh_edges]))
     
-    def get_connectivity(self):
-        return self.senders, self.receivers, self.world_pos   
     
     def forward(self, inputs, is_trainning, prebuild_graph=False):
         if is_trainning:
@@ -207,7 +208,12 @@ def loss_fn(inputs, network_output, model):
     # error[loss_mask3] = special_error
 
     # 在loss中加入抑制变形项
-    senders, receivers, world_pos = model.get_connectivity()
+    global save_senders
+    global save_reveivers
+    global save_world_pos
+    senders = save_senders
+    receivers = save_reveivers
+    world_pos = save_world_pos
     update_tensor = model.get_output_normalizer().inverse(network_output)
     new_world_pos = world_pos + update_tensor
     relative_world_pos = (torch.index_select(input=world_pos, dim=0, index=senders) -
@@ -241,7 +247,12 @@ def loss_fn_alter(target, network_output, node_type, model):
     # error[loss_mask3] = special_error
 
     # 在loss中加入抑制变形项
-    senders, receivers, world_pos = model.get_connectivity()
+    global save_senders
+    global save_reveivers
+    global save_world_pos
+    senders = save_senders
+    receivers = save_reveivers
+    world_pos = save_world_pos
     update_tensor = model.get_output_normalizer().inverse(network_output)
     new_world_pos = world_pos + update_tensor
     relative_world_pos = (torch.index_select(input=world_pos, dim=0, index=senders) -
