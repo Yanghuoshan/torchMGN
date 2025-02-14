@@ -47,6 +47,8 @@ class Model(nn.Module):
 
         self.use_global_features = use_global_features
         self.latent_size = latent_size
+        self.senders = torch.Tensor([])
+        self.receivers = torch.Tensor([])
         
         if self.use_global_features:
             self.learned_model = encode_process_decode.EncodeProcessDecodeAlter(
@@ -94,7 +96,8 @@ class Model(nn.Module):
 
         cells = [inputs['triangles'],inputs['rectangles']]
         senders, receivers = common.triangles_to_edges(cells, type=3)
-        
+        self.senders = senders
+        self.receivers = receivers
 
         mesh_pos = inputs['mesh_pos']
         relative_world_pos = (torch.index_select(input=inputs['world_pos'], dim=0, index=senders) -
@@ -116,7 +119,10 @@ class Model(nn.Module):
             return (common.MultiGraph(node_features=node_features, global_features=global_features, edge_sets=[mesh_edges]))
         else:
             return (common.MultiGraph(node_features=node_features, edge_sets=[mesh_edges]))
-        
+    
+    def get_connectivity(self):
+        return self.senders, self.receivers   
+    
     def forward(self, inputs, is_trainning, prebuild_graph=False):
         if is_trainning:
             if not prebuild_graph:
@@ -134,9 +140,7 @@ class Model(nn.Module):
         update_tensor = self._output_normalizer.inverse(per_node_network_output)
         # integrate forward
         cur_world_pos = inputs["world_pos"]
-        cur_velocity = inputs['velocity']
-        init_state = torch.concat((cur_world_pos,cur_velocity),dim=1)
-        return init_state + update_tensor
+        return cur_world_pos + update_tensor
 
     def get_output_normalizer(self):
         return self._output_normalizer
@@ -198,7 +202,19 @@ def loss_fn(inputs, network_output, model):
     # 将 special_error 应用于 error 中对应的位置
     # error[loss_mask3] = special_error
 
-    loss = torch.mean(error[combine_loss_mark])
+    # 在loss中加入抑制变形项
+    update_tensor = model.get_output_normalizer().inverse(network_output)
+    new_world_pos = world_pos + update_tensor
+    senders, receivers = model.get_connectivity()
+    relative_world_pos = (torch.index_select(input=world_pos, dim=0, index=senders) -
+                          torch.index_select(input=world_pos, dim=0, index=receivers))
+    new_relative_world_pos = (torch.index_select(input=new_world_pos, dim=0, index=senders) -
+                              torch.index_select(input=new_world_pos, dim=0, index=receivers))
+    edge_length = torch.norm(relative_world_pos, dim=-1, keepdim=True)
+    new_edge_length = torch.norm(new_relative_world_pos, dim=-1, keepdim=True)
+    R = torch.sum(new_edge_length/edge_length)
+
+    loss = torch.mean(error[combine_loss_mark]) + (R-1)**2
     return loss
 
 
@@ -240,7 +256,6 @@ def rollout(model, trajectory, num_steps, device='cuda'):
     mask_wallboundary = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.WALL_BOUNDARY.value], device=node_type.device))
 
     pred_trajectory = []
-    velocity = []
     triangles = []
     rectangles = []
 
@@ -248,7 +263,6 @@ def rollout(model, trajectory, num_steps, device='cuda'):
         cur_state[k] = cur_state[k].to(device)
 
     pred_trajectory.append(cur_state['world_pos'])
-    velocity.append(cur_state['velocity'])
     triangles.append(cur_state['triangles'])
     rectangles.append(cur_state['rectangles'])
 
@@ -264,9 +278,6 @@ def rollout(model, trajectory, num_steps, device='cuda'):
         next_step_world_pos[mask_symmetry, 1] = prediction[mask_symmetry, 1]
         next_step_world_pos[mask_symmetry, 0] = cur_state['world_pos'][mask_symmetry, 0]
 
-        # # 选取普通点和边界点和对称轴点正常更新水流速度
-        next_step_velocity = prediction[:,2].unsqueeze(-1)
-
 
         cur_state = next(trajectory)[0]
         for k in cur_state:
@@ -277,19 +288,13 @@ def rollout(model, trajectory, num_steps, device='cuda'):
 
         cur_state['world_pos'] = next_step_world_pos
 
-        next_step_velocity[mask_obstacle]=cur_state['velocity'][mask_obstacle]
-        next_step_velocity[mask_inflow] = cur_state['velocity'][mask_inflow]
-
-        cur_state['velocity'] = next_step_velocity
 
         pred_trajectory.append(cur_state['world_pos'])
-        velocity.append(cur_state['velocity'])
         triangles.append(cur_state['triangles'])
         rectangles.append(cur_state['rectangles'])
 
     return dict(
         world_pos = torch.stack(pred_trajectory),
-        velocity = torch.stack(velocity),
         triangles = torch.stack(triangles),
         rectangles = torch.stack(rectangles)
         )

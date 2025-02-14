@@ -9,6 +9,8 @@ import json
 import os
 import time
 import sys
+
+import torch.utils.data.dataloader
 sys.path.append('../')
 
 import torch.utils
@@ -416,6 +418,68 @@ class IncompNS_trajectory_dataset(torch.utils.data.Dataset):
             velocity=torch.Tensor(data['velocity'][sid, ...]).unsqueeze_(-1),
             target_world_pos=torch.Tensor(data['world_pos'][sid + 1, ...]),
             target_velocity=torch.Tensor(data['velocity'][sid + 1, ...]).unsqueeze_(-1),
+        )
+             
+        graph = self.prebuild_graph_fn(new_dict)
+
+        world_pos = new_dict['world_pos']
+        target_world_pos = new_dict['target_world_pos']
+        # target_stress = new_dict['stress']
+
+        cur_position = world_pos
+        target_position = target_world_pos
+        target = target_position - cur_position
+
+        # target = torch.concat((target, target_stress), dim=1) 
+
+        return [graph, target, new_dict['node_type']]
+    
+
+class Inflaction_trajectory_dataset(torch.utils.data.Dataset):
+    def __init__(self, path, prebuild_graph_fn = None, trajectory_index = 0):
+        self.path = path
+        self.meta = json.loads(open(os.path.join(path, 'metadata.json')).read())
+        self.files = self.meta['files']
+        self.num_samples = sum(self.files[f] - 1 for f in self.files)
+        self.fname = list(self.files.keys())[trajectory_index]
+        self.prebuild_graph_fn = prebuild_graph_fn
+
+        self.hdf5_dataset = h5py.File(os.path.join(path, 'dataset.h5'), 'r')
+
+        # if prebuild_graph_fn is not None:
+        #     self.return_item = self.return_graph
+        # else:
+        self.return_item = self.return_dict
+
+
+    def __len__(self): return next(iter(self.files.items()))[1]
+
+    def __getitem__(self, idx : int) -> dict:
+        data = self.hdf5_dataset[self.fname]
+        return self.return_item(data, idx)
+    
+    def return_dict(self, data, sid):
+        return dict(
+            triangles=torch.LongTensor(data['triangles'][sid, ...]),
+            rectangles=torch.LongTensor(data['rectangles'][sid, ...]),
+            node_type=torch.LongTensor(data['node_type'][sid, ...]),
+            mesh_pos=torch.Tensor(data['mesh_pos'][sid, ...]),
+            world_pos=torch.Tensor(data['world_pos'][sid, ...]),
+            target_world_pos=torch.Tensor(data['world_pos'][sid + 1, ...]),
+            pressure=torch.Tensor(data['pressure'][sid, ...]),
+            target_pressure=torch.Tensor(data['pressure'][sid + 1, ...])
+        )
+    
+    def return_graph(self, data, sid):
+        new_dict =  dict(
+            triangles=torch.LongTensor(data['triangles'][sid, ...]),
+            rectangles=torch.LongTensor(data['rectangles'][sid, ...]),
+            node_type=torch.LongTensor(data['node_type'][sid, ...]),
+            mesh_pos=torch.Tensor(data['mesh_pos'][sid, ...]),
+            world_pos=torch.Tensor(data['world_pos'][sid, ...]),
+            target_world_pos=torch.Tensor(data['world_pos'][sid + 1, ...]),
+            pressure=torch.Tensor(data['pressure'][sid, ...]),
+            target_pressure=torch.Tensor(data['pressure'][sid + 1, ...])
         )
              
         graph = self.prebuild_graph_fn(new_dict)
@@ -1112,7 +1176,7 @@ def get_trajectory_dataloader(path,
     elif model == "IncompNS":
         Datasets = IncompNS_trajectory_dataset
     elif model == "Inflaction":
-        Datasets = Inflaction_single_dataset_hdf5
+        Datasets = Inflaction_trajectory_dataset
     else:
         raise ValueError("The dataset type doesn't exist.")
     

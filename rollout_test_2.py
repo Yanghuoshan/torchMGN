@@ -6,11 +6,11 @@ import pickle
 from absl import app
 from absl import flags
 import torch
-from model_utils import HyperEl,Cloth,Easy_HyperEl,IncompNS
+from model_utils import HyperEl,Cloth,Easy_HyperEl,IncompNS,Inflaction
 from model_utils import deform_eval
 from model_utils import common
 from model_utils.encode_process_decode import init_weights
-from render_utils import Cloth_render, HyperEl_render, Easy_HyperEl_render, IncompNS_render
+from render_utils import Cloth_render, HyperEl_render, Easy_HyperEl_render, IncompNS_render, Inflaction_render
 from run_utils.utils import *
 import logging
 import numpy as np
@@ -30,9 +30,9 @@ device = torch.device('cuda')
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 
 
-last_run_dir = "D:\\project_summary\\Graduation Project\\torchMGN\output\IncompNS\Thu-Feb-13-01-15-17-2025"
+last_run_dir = "D:\project_summary\Graduation Project\\torchMGN\output\Inflaction\Fri-Feb-14-19-27-28-2025"
 # ds_dir = "D:\project_summary\Graduation Project\\tmp\datasets_np\\flag_simple"
-ds_dir ="D:\project_summary\Graduation Project\\tmp\datasets_hdf5\symmetry_waterballoon"
+ds_dir ="D:\project_summary\Graduation Project\\tmp\datasets_hdf5\inflaction"
 trajectory_index = 7
 split = "train"
 
@@ -49,6 +49,8 @@ elif run_step_config['model']== 'Easy_HyperEl':
     render = Easy_HyperEl_render.render
 elif run_step_config['model']== 'IncompNS':
     render = IncompNS_render.render
+elif run_step_config['model']== 'Inflaction':
+    render = Inflaction_render.render
 
 
 M = eval(run_step_config['model'])
@@ -63,7 +65,7 @@ print("Load model:",os.path.join(last_run_step_dir, 'checkpoint', "model_checkpo
 # model.load_model(os.path.join(last_run_step_dir, 'checkpoint', "model_checkpoint"))
 
 model.to(device)
-print(run_step_config['latent_size'])
+# print(run_step_config['latent_size'])
 rollout = M.rollout
 
 is_data_graph = False
@@ -106,5 +108,11 @@ elif run_step_config['model'] == 'IncompNS':
     print(new_trajectory["world_pos"].size(),new_trajectory["triangles"].size(),new_trajectory["rectangles"].size(),new_trajectory["velocity"].size())
     anim = render(new_trajectory,skip=5)
     anim.save('IncompNS1.gif', writer='pillow')
+elif run_step_config['model'] == 'Inflaction':
+    trajectory = iter(dl)
+    new_trajectory =rollout(model,trajectory,140)
+    print(new_trajectory["world_pos"].size(),new_trajectory["triangles"].size(),new_trajectory["rectangles"].size())
+    anim = render(new_trajectory,skip=1)
+    anim.save('Inflaction1.gif', writer='pillow')
 
 
