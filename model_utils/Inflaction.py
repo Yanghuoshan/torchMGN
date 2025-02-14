@@ -32,7 +32,7 @@ class Model(nn.Module):
     def __init__(self, output_size, message_passing_aggregator='sum', message_passing_steps=15, latent_size=128,
                  is_use_world_edge=False, 
                  mesh_type=3, 
-                 use_global_features=True):
+                 use_global_features=False):
         super(Model, self).__init__()
         self.output_size = output_size
         self._output_normalizer = normalization.Normalizer(size=output_size, name='output_normalizer')

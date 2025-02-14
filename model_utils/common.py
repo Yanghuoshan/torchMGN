@@ -20,7 +20,7 @@ import enum
 # import tensorflow.compat.v1 as tf
 import torch
 import torch.nn.functional as F
-from dataclasses import replace,dataclass
+from dataclasses import replace,dataclass,field
 
 import os
 import logging
@@ -54,7 +54,7 @@ class EdgeSet:
 @dataclass
 class MultiGraph:
     node_features:torch.Tensor
-    global_features:torch.Tensor
+    global_features:torch.Tensor = field(default_factory=lambda: torch.tensor([]))
     edge_sets:list
 
     def to(self, device):
