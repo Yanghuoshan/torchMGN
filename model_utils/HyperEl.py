@@ -262,7 +262,7 @@ def loss_fn(inputs, network_output, model):
     # loss = torch.mean(error)
     return loss
 
-def loss_fn_alter(target, network_output, node_type, model):
+def loss_fn_alter(init_graph, target, network_output, node_type, model):
     """L2 loss on position."""
     # build target acceleration
     

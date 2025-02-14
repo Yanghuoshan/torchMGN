@@ -202,7 +202,7 @@ def loss_fn(inputs, network_output, model):
     return loss
 
 
-def loss_fn_alter(target, network_output, node_type, model):
+def loss_fn_alter(init_graph, target, network_output, node_type, model):
     target_normalizer = model.get_output_normalizer()
     target_normalized = target_normalizer(target)
     loss_mask1 = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.NORMAL.value], device=network_output.device).int())

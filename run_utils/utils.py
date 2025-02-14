@@ -224,7 +224,7 @@ def learner(model, loss_fn, run_step_config, device):
                     input[2]=input[2].to(device)
                     out = model(input[0], is_trainning = True, prebuild_graph = True)
 
-                    loss = loss_fn(input[1],out,input[2],model)
+                    loss = loss_fn(input[0], input[1],out,input[2],model)
                 else:
                     for k in input:
                         input[k]=input[k].to(device)
