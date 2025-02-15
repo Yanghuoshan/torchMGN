@@ -32,7 +32,7 @@ class Model(nn.Module):
     def __init__(self, output_size, message_passing_aggregator='sum', message_passing_steps=15, latent_size=256,
                  is_use_world_edge=False, 
                  mesh_type=3, 
-                 use_global_features=True):
+                 use_global_features=False):
         super(Model, self).__init__()
         self.output_size = output_size
         self._output_normalizer = normalization.Normalizer(size=output_size, name='output_normalizer')
@@ -88,18 +88,14 @@ class Model(nn.Module):
 
         global_features = torch.zeros(1,self.latent_size, device=node_features.device)
 
-        cells = [inputs['triangles'],inputs['rectangles']]
-        senders, receivers = common.triangles_to_edges(cells, type=3)
+        cells = inputs['cells']
+        senders, receivers = common.triangles_to_edges(cells, type=0)
         
 
         mesh_pos = inputs['mesh_pos']
-        relative_world_pos = (torch.index_select(input=inputs['world_pos'], dim=0, index=senders) -
-                              torch.index_select(input=inputs['world_pos'], dim=0, index=receivers))
         relative_mesh_pos = (torch.index_select(mesh_pos, 0, senders) -
                              torch.index_select(mesh_pos, 0, receivers))
         edge_features = torch.cat((
-            relative_world_pos,
-            torch.norm(relative_world_pos, dim=-1, keepdim=True),
             relative_mesh_pos,
             torch.norm(relative_mesh_pos, dim=-1, keepdim=True)), dim=-1)
 
@@ -166,63 +162,29 @@ class Model(nn.Module):
         self.learned_model.eval()
 
 def loss_fn(inputs, network_output, model):
-    world_pos = inputs['world_pos']
-    target_world_pos = inputs['target_world_pos']
-    velocity = inputs['velocity']
-    target_velocity = inputs['target_velocity']
-        
-    cur_position = world_pos
-    target_position = target_world_pos
-    target1 = target_position - cur_position
+    target1 = inputs["target_velocity"]-inputs["velocity"]
+    target2 = inputs['pressure']
 
-    cur_velocity = velocity
-    target2 = target_velocity - cur_velocity
-
-    target = torch.concat((target1, target2))
+    target = torch.concat((target1, target2), dim=1) 
     target = target.to(network_output.device)
     target_normalized = model.get_output_normalizer()(target)
 
     
     # build loss
     node_type = inputs['node_type'].to(network_output.device)
-    loss_mask1 = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.NORMAL.value], device=network_output.device).int())
-    loss_mask2 = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.WALL_BOUNDARY.value], device=network_output.device).int())
-    combine_loss_mark = loss_mask1 | loss_mask2
-    # 新增的条件：node_type 为 symmetry 的点
-    loss_mask3 = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.SYMMETRY.value], device=network_output.device).int())
-
-    # 原始 error 计算
+    loss_mask = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.NORMAL.value], device=network_output.device).int())
     error = torch.sum((target_normalized - network_output) ** 2, dim=1)
-
-    # 对于 node_type 为 symmetry 的点，只计算第二维和第三维的 loss
-    special_error = torch.sum((target_normalized[loss_mask3, 1:3] - network_output[loss_mask3, 1:3]) ** 2, dim=1)
-
-    # 将 special_error 应用于 error 中对应的位置
-    error[loss_mask3] = special_error
-
-    loss = torch.mean(error[combine_loss_mark | loss_mask3])
+    loss = torch.mean(error[loss_mask])
     return loss
 
 
 def loss_fn_alter(init_graph, target, network_output, node_type, model):
     target_normalizer = model.get_output_normalizer()
     target_normalized = target_normalizer(target)
-    loss_mask1 = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.NORMAL.value], device=network_output.device).int())
-    loss_mask2 = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.WALL_BOUNDARY.value], device=network_output.device).int())
-    combine_loss_mark = loss_mask1 | loss_mask2
-    # 新增的条件：node_type 为 symmetry 的点
-    loss_mask3 = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.SYMMETRY.value], device=network_output.device).int())
-
+    loss_mask = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.NORMAL.value], device=network_output.device).int())
     # 原始 error 计算
     error = torch.sum((target_normalized - network_output) ** 2, dim=1)
-
-    # 对于 node_type 为 symmetry 的点，只计算第二维和第三维的 loss
-    special_error = torch.sum((target_normalized[loss_mask3, 1:3] - network_output[loss_mask3, 1:3]) ** 2, dim=1)
-
-    # 将 special_error 应用于 error 中对应的位置
-    error[loss_mask3] = special_error
-
-    loss = torch.mean(error[combine_loss_mark | loss_mask3])
+    loss = torch.mean(error[loss_mask])
     return loss
 
 

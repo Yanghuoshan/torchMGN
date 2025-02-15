@@ -821,14 +821,12 @@ class IncompNS_single_dataset_hdf5(torch.utils.data.Dataset): # use the world fi
     
     def return_dict(self, data, sid):
         new_dict =  dict(
-            triangles=torch.LongTensor(data['triangles'][sid, ...]),
-            rectangles=torch.LongTensor(data['rectangles'][sid, ...]),
+            cells=torch.LongTensor(data['cells'][sid, ...]),
             node_type=torch.LongTensor(data['node_type'][sid, ...]),
             mesh_pos=torch.Tensor(data['mesh_pos'][sid, ...]),
-            world_pos=torch.Tensor(data['world_pos'][sid, ...]),
-            velocity=torch.Tensor(data['velocity'][sid, ...]).unsqueeze_(-1),
-            target_world_pos=torch.Tensor(data['world_pos'][sid + 1, ...]),
-            target_velocity=torch.Tensor(data['velocity'][sid + 1, ...]).unsqueeze_(-1),
+            velocity=torch.Tensor(data['velocity'][sid, ...]),
+            target_velocity=torch.Tensor(data['velocity'][sid + 1, ...]),
+            pressure=torch.Tensor(data['pressure'][sid, ...])
         )
 
 
@@ -844,15 +842,13 @@ class IncompNS_single_dataset_hdf5(torch.utils.data.Dataset): # use the world fi
         
 
     def return_graph(self, data, sid):
-        new_dict = new_dict =  dict(
-            triangles=torch.LongTensor(data['triangles'][sid, ...]),
-            rectangles=torch.LongTensor(data['rectangles'][sid, ...]),
+        new_dict =  dict(
+            cells=torch.LongTensor(data['cells'][sid, ...]),
             node_type=torch.LongTensor(data['node_type'][sid, ...]),
             mesh_pos=torch.Tensor(data['mesh_pos'][sid, ...]),
-            world_pos=torch.Tensor(data['world_pos'][sid, ...]),
-            velocity=torch.Tensor(data['velocity'][sid, ...]).unsqueeze_(-1),
-            target_world_pos=torch.Tensor(data['world_pos'][sid + 1, ...]),
-            target_velocity=torch.Tensor(data['velocity'][sid + 1, ...]).unsqueeze_(-1),
+            velocity=torch.Tensor(data['velocity'][sid, ...]),
+            target_velocity=torch.Tensor(data['velocity'][sid + 1, ...]),
+            pressure=torch.Tensor(data['pressure'][sid, ...])
         )
   
         if self.add_noise_fn is not None:
@@ -860,17 +856,8 @@ class IncompNS_single_dataset_hdf5(torch.utils.data.Dataset): # use the world fi
              
         graph = self.prebuild_graph_fn(new_dict)
 
-        world_pos = new_dict['world_pos']
-        velocity = new_dict['velocity']
-        target_world_pos = new_dict['target_world_pos']
-        target_velocity = new_dict['target_velocity']
-
-        cur_position = world_pos
-        target_position = target_world_pos
-        target1 = target_position - cur_position
-
-        cur_velocity = velocity
-        target2 = target_velocity - cur_velocity
+        target1 = new_dict["target_velocity"]-new_dict["velocity"]
+        target2 = new_dict['pressure']
 
         target = torch.concat((target1, target2), dim=1) 
 

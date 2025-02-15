@@ -30,7 +30,7 @@ device = torch.device('cuda')
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 
 
-last_run_dir = "D:\project_summary\Graduation Project\\torchMGN\output\Inflaction\Sat-Feb-15-04-44-48-2025"
+last_run_dir = "D:\project_summary\Graduation Project\\torchMGN\output\Inflaction\Sat-Feb-15-14-38-15-2025"
 # ds_dir = "D:\project_summary\Graduation Project\\tmp\datasets_np\\flag_simple"
 ds_dir ="D:\project_summary\Graduation Project\\tmp\datasets_hdf5\inflaction"
 trajectory_index = 0
@@ -113,6 +113,6 @@ elif run_step_config['model'] == 'Inflaction':
     new_trajectory =rollout(model,trajectory,140)
     print(new_trajectory["world_pos"].size(),new_trajectory["triangles"].size(),new_trajectory["rectangles"].size())
     anim = render(new_trajectory,skip=1)
-    anim.save('Inflaction1.gif', writer='pillow')
+    anim.save('InflactionWithR3.gif', writer='pillow')
 
 

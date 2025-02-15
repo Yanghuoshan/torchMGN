@@ -175,13 +175,14 @@ def learner(model, loss_fn, run_step_config, device):
                                                             add_noise_fn=add_noise_fn(run_step_config['noise_field'],run_step_config['noise_scale'],run_step_config['noise_gamma']),
                                                             prebuild_graph_fn=run_step_config['build_graph'])
                 else:
-                    ds_loader = datasets.get_dataloader_hdf5_batch(run_step_config['dataset_dir'],
-                                                            model=run_step_config['model'],
-                                                            split='train',
-                                                            shuffle=True,
-                                                            prefetch=run_step_config['prefetch'], 
-                                                            batch_size=run_step_config['batch_size'],
-                                                            add_noise_fn=add_noise_fn(run_step_config['noise_field'],run_step_config['noise_scale'],run_step_config['noise_gamma']))
+                #     ds_loader = datasets.get_dataloader_hdf5_batch(run_step_config['dataset_dir'],
+                #                                             model=run_step_config['model'],
+                #                                             split='train',
+                #                                             shuffle=True,
+                #                                             prefetch=run_step_config['prefetch'], 
+                #                                             batch_size=run_step_config['batch_size'],
+                #                                             add_noise_fn=add_noise_fn(run_step_config['noise_field'],run_step_config['noise_scale'],run_step_config['noise_gamma']))
+                    raise ValueError("please prebuild graph")
             else:
                 # ds_loader = datasets.get_dataloader(run_step_config['dataset_dir'],
                 #                                     model=run_step_config['model'],

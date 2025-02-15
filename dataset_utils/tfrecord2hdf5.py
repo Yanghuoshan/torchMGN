@@ -33,8 +33,8 @@ train.h5 = {ex0:dict, ex1:dict, ...}
 FLAGS = flags.FLAGS
 flags.DEFINE_string('in_dir', '../tmp/datasets/', 'Input datasets directory')
 flags.DEFINE_string('out_dir', '../tmp/datasets_hdf5/','Output datasets directory')
-flags.DEFINE_string('dataset_name', 'deforming_plate', '')
-flags.DEFINE_string('split', 'valid', '')
+flags.DEFINE_string('dataset_name', 'cylinder_flow', '')
+flags.DEFINE_string('split', 'train', '')
 flags.DEFINE_boolean('debug', False, 'Enable debugging output')
 
 def _parse(proto, meta):
