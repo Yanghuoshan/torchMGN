@@ -234,22 +234,39 @@ def loss_fn_alter(init_graph:common.MultiGraph, target, network_output, node_typ
     # error[loss_mask3] = special_error
 
     # 在loss中加入抑制变形项
-    update_tensor = model.get_output_normalizer().inverse(network_output)
-    relative_world_pos = init_graph.edge_sets[0].features[:,0:2]
-    relative_mesh_pos = init_graph.edge_sets[0].features[:,3:5]
+    # update_tensor = model.get_output_normalizer().inverse(network_output)
+    # relative_world_pos = init_graph.edge_sets[0].features[:,0:2]
+    # relative_mesh_pos = init_graph.edge_sets[0].features[:,3:5]
+    # senders = init_graph.edge_sets[0].senders
+    # receivers = init_graph.edge_sets[0].receivers
+    # new_relative_world_pos = relative_world_pos + (torch.index_select(input=update_tensor, dim=0, index=senders) - torch.index_select(input=update_tensor, dim=0, index=receivers))
+    
+    # mesh_edge_length = torch.norm(relative_mesh_pos, dim=-1, keepdim=True)
+    # edge_length = torch.norm(relative_world_pos, dim=-1, keepdim=True)
+    # new_edge_length = torch.norm(new_relative_world_pos, dim=-1, keepdim=True)
+    
+    # R1 = torch.mean(new_edge_length/edge_length)
+    # R2 = torch.mean(new_edge_length/mesh_edge_length)
+    # alpha = 1
+    # beta = 1
+
+    # loss = torch.mean(error[combine_loss_mark]) + alpha*(R1-1)**2 + beta*(R2-1)**2
+
+    # 在loss中加入与目标边长的比较
     senders = init_graph.edge_sets[0].senders
     receivers = init_graph.edge_sets[0].receivers
+    relative_world_pos = init_graph.edge_sets[0].features[:,0:2]
+    target_relative_world_pos = relative_world_pos + (torch.index_select(input=target, dim=0, index=senders) - torch.index_select(input=target, dim=0, index=receivers))
+    target_edge_length = torch.norm(target_relative_world_pos, dim=-1, keepdim=True)
+
+    update_tensor = model.get_output_normalizer().inverse(network_output)
     new_relative_world_pos = relative_world_pos + (torch.index_select(input=update_tensor, dim=0, index=senders) - torch.index_select(input=update_tensor, dim=0, index=receivers))
-    
-    mesh_edge_length = torch.norm(relative_mesh_pos, dim=-1, keepdim=True)
-    edge_length = torch.norm(relative_world_pos, dim=-1, keepdim=True)
     new_edge_length = torch.norm(new_relative_world_pos, dim=-1, keepdim=True)
-    
-    R1 = torch.mean(new_edge_length/edge_length)
-    R2 = torch.mean(new_edge_length/mesh_edge_length)
-    alpha = 1
-    beta = 1
-    loss = torch.mean(error[combine_loss_mark]) + alpha*(R1-1)**2 + beta*(R2-1)**2
+
+    R3 = torch.mean((new_edge_length - target_edge_length)**2)
+    gamma = 1
+
+    loss = torch.mean(error[combine_loss_mark]) + gamma * R3
     return loss
 
 
