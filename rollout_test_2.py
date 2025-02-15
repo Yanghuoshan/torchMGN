@@ -30,10 +30,10 @@ device = torch.device('cuda')
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 
 
-last_run_dir = "D:\project_summary\Graduation Project\\torchMGN\output\Inflaction\Fri-Feb-14-19-27-28-2025"
+last_run_dir = "D:\project_summary\Graduation Project\\torchMGN\output\Inflaction\Sat-Feb-15-04-44-48-2025"
 # ds_dir = "D:\project_summary\Graduation Project\\tmp\datasets_np\\flag_simple"
 ds_dir ="D:\project_summary\Graduation Project\\tmp\datasets_hdf5\inflaction"
-trajectory_index = 7
+trajectory_index = 0
 split = "train"
 
 last_run_step_dir = find_nth_latest_run_step(last_run_dir, 1)
