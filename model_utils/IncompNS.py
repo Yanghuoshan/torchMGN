@@ -67,7 +67,7 @@ class Model(nn.Module):
             
         self.noise_scale = 0.003
         self.noise_gamma = 1
-        self.noise_field = ["world_pos","velocity"]
+        self.noise_field = "velocity"
 
     def graph_normalization(self, graph):
         new_mesh_edges = replace(graph.edge_sets[0],features = self._mesh_edge_normalizer(graph.edge_sets[0].features))
