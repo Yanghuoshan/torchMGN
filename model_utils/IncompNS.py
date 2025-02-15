@@ -36,7 +36,7 @@ class Model(nn.Module):
         super(Model, self).__init__()
         self.output_size = output_size
         self._output_normalizer = normalization.Normalizer(size=output_size, name='output_normalizer')
-        self._mesh_edge_normalizer = normalization.Normalizer(size=(output_size-1)*2+2, name='mesh_edge_normalizer')
+        self._mesh_edge_normalizer = normalization.Normalizer(size=3, name='mesh_edge_normalizer')
         # self._world_edge_normalizer = normalization.Normalizer(size=4, name='world_edge_normalizer') # abandon temporarily
         self._node_normalizer = normalization.Normalizer(size=1 + common.NodeType.SIZE, name='node_normalizer')
 
