@@ -6,7 +6,7 @@ import os
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 
 
-dl = datasets.get_dataloader_hdf5_batch("D:\project_summary\Graduation Project\\tmp\datasets_hdf5\\symmetry_waterballoon",model="IncompNS",shuffle=False)
+dl = datasets.get_dataloader_hdf5_batch("D:\project_summary\Graduation Project\\tmp\datasets_hdf5\\vessel2d",model="HyperEl2d",shuffle=False)
 # dl = datasets.get_dataloader("D:\project_summary\Graduation Project\\tmp\datasets_np\\flag_simple\\train",dataset_type="Cloth")
 dl = iter(dl)
 input = next(dl)[0] 
@@ -25,8 +25,8 @@ print(points.shape)
 # print(input["mesh_pos"])
 
 # 定义面
-triangles = input["triangles"]
-rectangles = input["rectangles"]
+triangles = input["cells"]
+# rectangles = input["rectangles"]
 # print(rectangles)
 # 创建一个绘图对象
 fig = plt.figure()
@@ -42,11 +42,11 @@ for tet in triangles:
     poly2d = PolyCollection(faces, alpha=0.2, edgecolor='k')
     ax.add_collection(poly2d)
 
-for quad in rectangles:
-    verts = [points[quad[i]] for i in range(4)]
-    faces = [[verts[0], verts[1], verts[2],verts[3]]]
-    poly2d = PolyCollection(faces, alpha=0.2, edgecolor='k')
-    ax.add_collection(poly2d)
+# for quad in rectangles:
+#     verts = [points[quad[i]] for i in range(4)]
+#     faces = [[verts[0], verts[1], verts[2],verts[3]]]
+#     poly2d = PolyCollection(faces, alpha=0.2, edgecolor='k')
+#     ax.add_collection(poly2d)
 
 # 设置坐标轴
 scatter = ax.scatter(points[:, 0], points[:, 1], c=node_colors)

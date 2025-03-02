@@ -125,10 +125,8 @@ class Model(nn.Module):
         """Integrate model outputs."""
         update_tensor = self._output_normalizer.inverse(per_node_network_output)
         # integrate forward
-        cur_world_pos = inputs["world_pos"]
         cur_velocity = inputs['velocity']
-        init_state = torch.concat((cur_world_pos,cur_velocity),dim=1)
-        return init_state + update_tensor
+        return cur_velocity + update_tensor[:,0:2], update_tensor[:,2]
 
     def get_output_normalizer(self):
         return self._output_normalizer
@@ -193,69 +191,46 @@ def rollout(model, trajectory, num_steps, device='cuda'):
     node_type = cur_state['node_type']
     mask_normal = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.NORMAL.value], device=node_type.device))
 
-    mask_symmetry = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.SYMMETRY.value], device=node_type.device))
-    # x_zero_mask = torch.abs(cur_state['world_pos'][:, 0] - 0) < 1e-6
-    # mask_symmetry = mask_symmetry|x_zero_mask
-
     mask_inflow = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.INFLOW.value], device=node_type.device))
     
-    mask_obstacle = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.OBSTACLE.value], device=node_type.device))
+    mask_outflow = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.INFLOW.value], device=node_type.device))
 
     mask_wallboundary = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.WALL_BOUNDARY.value], device=node_type.device))
 
     pred_trajectory = []
     velocity = []
-    triangles = []
-    rectangles = []
+    pressure = []
+    cells = []
 
     for k in cur_state:
         cur_state[k] = cur_state[k].to(device)
 
-    pred_trajectory.append(cur_state['world_pos'])
-    velocity.append(cur_state['velocity'])
-    triangles.append(cur_state['triangles'])
-    rectangles.append(cur_state['rectangles'])
-
     for _ in range(num_steps):
+        pred_trajectory.append(cur_state['mesh_pos'])
+        velocity.append(cur_state['velocity'])
+        cells.append(cur_state['cells'])
         
         with torch.no_grad():
-            prediction = model(cur_state,is_trainning=False) # prediction三个维度分别是x, y, w
+            next_velocity, cur_pressure = model(cur_state,is_trainning=False) # prediction三个维度分别是x, y, w
 
-        # 选取普通点和边界点正常更新world_pos
-        next_step_world_pos = prediction[:,0:2]
-
-        # 对称轴点只更新 y 轴坐标（索引 1）
-        next_step_world_pos[mask_symmetry, 1] = prediction[mask_symmetry, 1]
-        next_step_world_pos[mask_symmetry, 0] = cur_state['world_pos'][mask_symmetry, 0]
-
-        # # 选取普通点和边界点和对称轴点正常更新水流速度
-        next_step_velocity = prediction[:,2].unsqueeze(-1)
-
-
+        pressure.append(cur_pressure)
         cur_state = next(trajectory)[0]
+
         for k in cur_state:
             cur_state[k] = cur_state[k].to(device)
 
-        next_step_world_pos[mask_obstacle] = cur_state['world_pos'][mask_obstacle]
-        next_step_world_pos[mask_inflow] = cur_state['world_pos'][mask_inflow]
 
-        cur_state['world_pos'] = next_step_world_pos
+        next_velocity[mask_outflow]=cur_state['velocity'][mask_outflow]
+        next_velocity[mask_inflow] = cur_state['velocity'][mask_inflow]
+        next_velocity[mask_wallboundary]=cur_state['velocity'][mask_wallboundary]
 
-        next_step_velocity[mask_obstacle]=cur_state['velocity'][mask_obstacle]
-        next_step_velocity[mask_inflow] = cur_state['velocity'][mask_inflow]
-
-        cur_state['velocity'] = next_step_velocity
-
-        pred_trajectory.append(cur_state['world_pos'])
-        velocity.append(cur_state['velocity'])
-        triangles.append(cur_state['triangles'])
-        rectangles.append(cur_state['rectangles'])
+        cur_state['velocity'] = next_velocity
 
     return dict(
-        world_pos = torch.stack(pred_trajectory),
+        mesh_pos = torch.stack(pred_trajectory),
         velocity = torch.stack(velocity),
-        triangles = torch.stack(triangles),
-        rectangles = torch.stack(rectangles)
+        pressure = torch.stack(pressure),
+        cells = torch.stack(cells)
         )
 
 def evaluate(model, trajectory, num_steps=None):

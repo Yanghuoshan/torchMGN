@@ -30,11 +30,11 @@ device = torch.device('cuda')
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 
 
-last_run_dir = "D:\project_summary\Graduation Project\\torchMGN\output\Inflaction\Sat-Feb-15-14-38-15-2025"
+last_run_dir = "D:\project_summary\Graduation Project\\torchMGN\output\HyperEl\Tue-Jan-28-17-19-20-2025"
 # ds_dir = "D:\project_summary\Graduation Project\\tmp\datasets_np\\flag_simple"
-ds_dir ="D:\project_summary\Graduation Project\\tmp\datasets_hdf5\inflaction"
-trajectory_index = 0
-split = "train"
+ds_dir ="D:\project_summary\Graduation Project\\tmp\datasets_hdf5\deforming_plate"
+trajectory_index = 23
+split = "valid"
 
 last_run_step_dir = find_nth_latest_run_step(last_run_dir, 1)
 run_step_config = pickle_load(os.path.join(last_run_step_dir, 'log', 'config.pkl'))
@@ -45,6 +45,7 @@ if run_step_config['model'] == 'Cloth':
     render = Cloth_render.render
 elif run_step_config['model'] == 'HyperEl':
     render = HyperEl_render.render
+    run_step_config['latent_size'] = 128
 elif run_step_config['model']== 'Easy_HyperEl':
     render = Easy_HyperEl_render.render
 elif run_step_config['model']== 'IncompNS':
@@ -86,11 +87,17 @@ if run_step_config['model']=="Cloth":
     anim = render(new_trajectory, skip=5)
     anim.save('animation4.gif', writer='pillow')
 elif run_step_config['model']=="HyperEl":
-    trajectory = iter(dl)
-    new_trajectory =rollout(model,trajectory,398)
-    print(new_trajectory["world_pos"].size(),new_trajectory["cells"].size())
-    anim = render(new_trajectory, skip=5)
-    anim.save('animation5.gif', writer='pillow')
+    for i in range(6):
+        dl = datasets.get_trajectory_dataloader(ds_dir,
+                                            model=run_step_config['model'],
+                                            is_data_graph=is_data_graph, 
+                                            trajectory_index=i + 20,
+                                            split=split)
+        trajectory = iter(dl)
+        new_trajectory =rollout(model,trajectory,300)
+        print(new_trajectory["world_pos"].size(),new_trajectory["cells"].size())
+        anim = render(new_trajectory, skip=5)
+        anim.save(f'HyperEl{i + 20}.gif', writer='pillow')
 elif run_step_config['model'] == 'Easy_HyperEl':
     trajectory = iter(dl)
     new_trajectory =rollout(model,trajectory,99)
@@ -103,11 +110,17 @@ elif run_step_config['model'] == 'Easy_HyperEl':
     # anim = render(new_trajectory, skip=5)
     # anim.save('animation5.gif', writer='pillow')
 elif run_step_config['model'] == 'IncompNS':
-    trajectory = iter(dl)
-    new_trajectory =rollout(model,trajectory,140)
-    print(new_trajectory["world_pos"].size(),new_trajectory["triangles"].size(),new_trajectory["rectangles"].size(),new_trajectory["velocity"].size())
-    anim = render(new_trajectory,skip=5)
-    anim.save('IncompNS1.gif', writer='pillow')
+    for i in range(1):
+        dl = datasets.get_trajectory_dataloader(ds_dir,
+                                            model=run_step_config['model'],
+                                            is_data_graph=is_data_graph, 
+                                            trajectory_index=i+4,
+                                            split=split)
+        trajectory = iter(dl)
+        new_trajectory =rollout(model,trajectory,590)
+        print(new_trajectory["mesh_pos"].size(),new_trajectory["cells"].size(),new_trajectory["velocity"].size(),new_trajectory["pressure"].size())
+        anim = render(new_trajectory,skip=5, color_field ='pressure')
+        anim.save(f'IncompNSCylinderflowPressure{i+4}.gif', writer='pillow')
 elif run_step_config['model'] == 'Inflaction':
     trajectory = iter(dl)
     new_trajectory =rollout(model,trajectory,140)

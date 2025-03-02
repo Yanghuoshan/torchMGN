@@ -88,6 +88,7 @@ def render(trajectory, skip=1):
 
     def animate(num):
         step = num * skip
+        print(f'render step: {step}')
         ax.cla()
         ax.set_xlim([bound[0][0], bound[1][0]])
         ax.set_ylim([bound[0][1], bound[1][1]])

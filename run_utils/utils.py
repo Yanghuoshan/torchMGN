@@ -226,12 +226,14 @@ def learner(model, loss_fn, run_step_config, device):
                     out = model(input[0], is_trainning = True, prebuild_graph = True)
 
                     loss = loss_fn(input[0], input[1],out,input[2],model)
-                else:
-                    for k in input:
-                        input[k]=input[k].to(device)
-                    out = model(input, is_trainning = True, prebuild_graph = False)
+                # else:
+                #     for k in input:
+                #         input[k]=input[k].to(device)
+                #     out = model(input, is_trainning = True, prebuild_graph = False)
                 
-                    loss = loss_fn(input,out,model)
+                #     loss = loss_fn(input,out,model)
+                else:
+                    raise ValueError('please prebuild graphs')
 
                 if pass_count > 0:
                     pass_count -= 1
