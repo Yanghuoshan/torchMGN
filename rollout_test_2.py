@@ -6,11 +6,11 @@ import pickle
 from absl import app
 from absl import flags
 import torch
-from model_utils import HyperEl,Cloth,Easy_HyperEl,IncompNS,Inflaction
+from model_utils import HyperEl,Cloth,Easy_HyperEl,IncompNS,Inflaction,HyperEl2d
 from model_utils import deform_eval
 from model_utils import common
 from model_utils.encode_process_decode import init_weights
-from render_utils import Cloth_render, HyperEl_render, Easy_HyperEl_render, IncompNS_render, Inflaction_render
+from render_utils import Cloth_render, HyperEl_render, Easy_HyperEl_render, IncompNS_render, Inflaction_render, HyperEl2d_render
 from run_utils.utils import *
 import logging
 import numpy as np
@@ -30,11 +30,11 @@ device = torch.device('cuda')
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 
 
-last_run_dir = "D:\project_summary\Graduation Project\\torchMGN\output\HyperEl\Tue-Jan-28-17-19-20-2025"
+last_run_dir = "D:\project_summary\Graduation Project\\torchMGN\output\HyperEl2d\Sun-Mar--2-19-05-16-2025"
 # ds_dir = "D:\project_summary\Graduation Project\\tmp\datasets_np\\flag_simple"
-ds_dir ="D:\project_summary\Graduation Project\\tmp\datasets_hdf5\deforming_plate"
+ds_dir ="D:\project_summary\Graduation Project\\tmp\datasets_hdf5\\vessel2d"
 trajectory_index = 23
-split = "valid"
+split = "train"
 
 last_run_step_dir = find_nth_latest_run_step(last_run_dir, 1)
 run_step_config = pickle_load(os.path.join(last_run_step_dir, 'log', 'config.pkl'))
@@ -52,6 +52,8 @@ elif run_step_config['model']== 'IncompNS':
     render = IncompNS_render.render
 elif run_step_config['model']== 'Inflaction':
     render = Inflaction_render.render
+elif run_step_config['model'] == 'HyperEl2d':
+    render = HyperEl2d_render.render
 
 
 M = eval(run_step_config['model'])
@@ -127,5 +129,11 @@ elif run_step_config['model'] == 'Inflaction':
     print(new_trajectory["world_pos"].size(),new_trajectory["triangles"].size(),new_trajectory["rectangles"].size())
     anim = render(new_trajectory,skip=1)
     anim.save('InflactionWithR3.gif', writer='pillow')
+elif run_step_config['model'] == 'HyperEl2d':
+    trajectory = iter(dl)
+    new_trajectory =rollout(model,trajectory,399)
+    print(new_trajectory["world_pos"].size(),new_trajectory["cells"].size(),new_trajectory["stress"].size())
+    anim = render(new_trajectory,skip=1)
+    anim.save('vessel2d.gif', writer='pillow')
 
 

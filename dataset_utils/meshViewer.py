@@ -6,7 +6,7 @@ import os
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 
 
-dl = datasets.get_dataloader_hdf5_batch("D:\project_summary\Graduation Project\\tmp\datasets_hdf5\\vessel2d",model="HyperEl2d",shuffle=False)
+dl = datasets.get_dataloader_hdf5_batch("D:\project_summary\Graduation Project\\tmp\datasets_hdf5\\vessel2d",model="HyperEl2d",shuffle=False, batch_size=1)
 # dl = datasets.get_dataloader("D:\project_summary\Graduation Project\\tmp\datasets_np\\flag_simple\\train",dataset_type="Cloth")
 dl = iter(dl)
 input = next(dl)[0] 

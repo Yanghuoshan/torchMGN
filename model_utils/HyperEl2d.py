@@ -60,12 +60,19 @@ class Model(nn.Module):
 
         senders, receivers = common.triangles_to_edges(cells, type=self.mesh_type)
 
+
+        # 获取mesh域最小距离
+        mesh_pos = inputs['mesh_pos']
+        relative_mesh_pos = (torch.index_select(mesh_pos, 0, senders) -
+                             torch.index_select(mesh_pos, 0, receivers))
+        mesh_edge_len = torch.norm(relative_mesh_pos, dim=-1, keepdim=True),
+
         # find world edge
         # 原论文应选用最小的mesh域的距离
         # 且原论文也没有规定obstacle和其他种类的node只能作为sender或receiver
         world_distance_matrix = torch.cdist(world_pos, world_pos, p=2)
 
-        radius = 0.03
+        radius = torch.min(mesh_edge_len)
         
         world_connection_matrix = world_distance_matrix < radius
 
@@ -99,14 +106,12 @@ class Model(nn.Module):
             senders=world_senders)
 
 
-        mesh_pos = inputs['mesh_pos']
-        relative_mesh_pos = (torch.index_select(mesh_pos, 0, senders) -
-                             torch.index_select(mesh_pos, 0, receivers))
+        
         all_relative_world_pos = (torch.index_select(input=world_pos, dim=0, index=senders) -
                               torch.index_select(input=world_pos, dim=0, index=receivers))
         mesh_edge_features = torch.cat((
             relative_mesh_pos,
-            torch.norm(relative_mesh_pos, dim=-1, keepdim=True),
+            mesh_edge_len,
             all_relative_world_pos,
             torch.norm(all_relative_world_pos, dim=-1, keepdim=True)), dim=-1)
 
@@ -146,18 +151,14 @@ class Model(nn.Module):
         output_mask = torch.stack([output_mask] * inputs['world_pos'].shape[-1], dim=1)
         velocity = self._output_normalizer.inverse(torch.where(output_mask, per_node_network_output, torch.tensor(0., device=device)))'''
         output = self._output_normalizer.inverse(per_node_network_output)
-        velocity = output[...,0:3]
-        # stress = output[...,3]
-
-        node_type = inputs['node_type']
-        '''scripted_node_mask = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.OBSTACLE.value], device=device))
-        scripted_node_mask = torch.stack([scripted_node_mask] * 3, dim=1)'''
+        velocity = output[...,0:2]
+        stress = output[...,2]
 
         # integrate forward
         cur_position = inputs['world_pos']
         position = cur_position + velocity
         # position = torch.where(scripted_node_mask, position + inputs['target|world_pos'] - inputs['world_pos'], position)
-        return position
+        return position, stress
 
     def get_output_normalizer(self):
         return self._output_normalizer
@@ -252,24 +253,13 @@ def rollout(model, trajectory, num_steps, device='cuda'):
     cur_state = next(trajectory)[0]
     node_type = cur_state['node_type']
     mask_normal = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.NORMAL.value], device=node_type.device))
-    mask_normal = torch.stack((mask_normal, mask_normal, mask_normal), dim=1).to(device)
 
     mask_obstacle = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.OBSTACLE.value], device=node_type.device))
-    mask_obstacle = torch.stack((mask_obstacle, mask_obstacle, mask_obstacle), dim=1).to(device)
 
-    # def step_fn(prev_pos, cur_pos, trajectory, cells):
-
-    #     with torch.no_grad():
-    #         prediction = model({**initial_state, # cells, node_type, mesh_pos
-    #                             'prev_world_pos': prev_pos,
-    #                             'world_pos': cur_pos}, is_trainning=False)
-
-    #     next_pos = torch.where(mask_normal, prediction, cur_pos)
-
-    #     trajectory.append(cur_pos)
-    #     cells.append(initial_state['cells'])
-    #     return cur_pos, next_pos, trajectory, cells
+    mask_handle = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.HANDLE.value], device=node_type.device))
+    
     new_trajectory = []
+    new_stress = []
     cells = []
 
     for k in cur_state:
@@ -281,24 +271,30 @@ def rollout(model, trajectory, num_steps, device='cuda'):
     for _ in range(num_steps):
         
         with torch.no_grad():
-            prediction = model(cur_state,is_trainning=False)
+            prediction, stress = model(cur_state,is_trainning=False)
 
-        next_pos = torch.where(mask_normal, prediction, cur_state['world_pos']) # select normal points
-    
+        
+        cur_stess = cur_state['stress']
+        cur_state[mask_normal] = stress[mask_normal]
+
+        new_stress.append(cur_stess)
+
         cur_state = next(trajectory)[0]
         for k in cur_state:
             cur_state[k] = cur_state[k].to(device)
 
-        cur_state_world_pos = torch.where(mask_obstacle, cur_state['world_pos'], next_pos) # select obstacle points
+        prediction[mask_obstacle] = cur_state['world_pos'][mask_obstacle]
+        prediction[mask_handle] = cur_state['world_pos'][mask_handle]
 
-        cur_state['world_pos'] = cur_state_world_pos
+        cur_state['world_pos'] = prediction
 
         new_trajectory.append(cur_state['world_pos'])
         cells.append(cur_state['cells'])
 
     return dict(
-        world_pos = torch.stack(new_trajectory),
-        cells = torch.stack(cells)
+        world_pos = torch.stack(new_trajectory[:-1]),
+        cells = torch.stack(cells[:-1]),
+        stress = torch.stack(new_stress)
         )
 
 
