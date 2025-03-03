@@ -65,7 +65,7 @@ class Model(nn.Module):
         mesh_pos = inputs['mesh_pos']
         relative_mesh_pos = (torch.index_select(mesh_pos, 0, senders) -
                              torch.index_select(mesh_pos, 0, receivers))
-        mesh_edge_len = torch.norm(relative_mesh_pos, dim=-1, keepdim=True),
+        mesh_edge_len = torch.norm(relative_mesh_pos, dim=-1, keepdim=True)
 
         # find world edge
         # 原论文应选用最小的mesh域的距离
