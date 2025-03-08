@@ -30,11 +30,11 @@ device = torch.device('cuda')
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 
 
-last_run_dir = "D:\project_summary\Graduation Project\\torchMGN\output\HyperEl2d\Sun-Mar--2-19-05-16-2025"
+last_run_dir = "D:\project_summary\Graduation Project\\torchMGN\output\HyperEl2d\Mon-Mar--3-14-20-27-2025"
 # ds_dir = "D:\project_summary\Graduation Project\\tmp\datasets_np\\flag_simple"
 ds_dir ="D:\project_summary\Graduation Project\\tmp\datasets_hdf5\\vessel2d"
-trajectory_index = 23
-split = "train"
+trajectory_index = 20
+split = "test"
 
 last_run_step_dir = find_nth_latest_run_step(last_run_dir, 1)
 run_step_config = pickle_load(os.path.join(last_run_step_dir, 'log', 'config.pkl'))
@@ -53,7 +53,7 @@ elif run_step_config['model']== 'IncompNS':
 elif run_step_config['model']== 'Inflaction':
     render = Inflaction_render.render
 elif run_step_config['model'] == 'HyperEl2d':
-    render = HyperEl2d_render.render
+    render = HyperEl2d_render.render3d
 
 
 M = eval(run_step_config['model'])
@@ -132,8 +132,8 @@ elif run_step_config['model'] == 'Inflaction':
 elif run_step_config['model'] == 'HyperEl2d':
     trajectory = iter(dl)
     new_trajectory =rollout(model,trajectory,399)
-    print(new_trajectory["world_pos"].size(),new_trajectory["cells"].size(),new_trajectory["stress"].size())
+    print(new_trajectory["world_pos"].size(),new_trajectory["cells"].size(),new_trajectory["stress"].size(),new_trajectory["node_type"].size())
     anim = render(new_trajectory,skip=1)
-    anim.save('vessel2d.gif', writer='pillow')
+    anim.save('vessel2dcolor3dNew7.gif', writer='pillow')
 
 

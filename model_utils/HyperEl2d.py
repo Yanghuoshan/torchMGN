@@ -294,7 +294,8 @@ def rollout(model, trajectory, num_steps, device='cuda'):
     return dict(
         world_pos = torch.stack(new_trajectory[:-1]),
         cells = torch.stack(cells[:-1]),
-        stress = torch.stack(new_stress)
+        stress = torch.stack(new_stress),
+        node_type = node_type
         )
 
 
