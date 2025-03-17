@@ -33,7 +33,7 @@ class Model(nn.Module):
                  is_use_world_edge=False, 
                  mesh_type=3, 
                  use_global_features=False,
-                 is_3d=False):
+                 is_3d=True):
         super(Model, self).__init__()
         self.output_size = output_size
         self._output_normalizer = normalization.Normalizer(size=output_size, name='output_normalizer')
@@ -187,7 +187,7 @@ def loss_fn(inputs, network_output, model):
     loss_mask2 = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.WALL_BOUNDARY.value], device=network_output.device).int())
     loss_mask3 = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.OUTFLOW.value], device=network_output.device).int())
     loss_mask = loss_mask1|loss_mask2|loss_mask3
-    
+
     error = torch.sum((target_normalized - network_output) ** 2, dim=1)
     loss = torch.mean(error[loss_mask])
     return loss
