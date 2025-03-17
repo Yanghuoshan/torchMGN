@@ -25,6 +25,14 @@ from model_utils import HyperEl2d
 from dataclasses import replace
 
 
+def ensure_3d_tensors(data_dict):
+    for key, tensor in data_dict.items():
+        while tensor.dim() < 3:
+            tensor = tensor.unsqueeze(-1)  # 在最后一维上增加维度
+        data_dict[key] = tensor
+    return data_dict
+
+
 class HyperEl_single_dataset(torch.utils.data.Dataset):
     def __init__(self, path, is_data_graph = False):
         self.path = path
@@ -890,7 +898,8 @@ class IncompNS_single_dataset_hdf5(torch.utils.data.Dataset): # use the world fi
         #     value = NodeType.OBSTACLE
         #     indices = torch.nonzero(new_dict["node_type"].squeeze() == value).squeeze()
         #     new_dict["world_pos"][indices] = torch.Tensor(data['world_pos'][sid + 10, ...][indices])
-        
+        new_dict = ensure_3d_tensors(new_dict)
+
         if self.add_noise_fn is not None:
             new_dict = self.add_noise_fn(new_dict)    
         
@@ -906,6 +915,8 @@ class IncompNS_single_dataset_hdf5(torch.utils.data.Dataset): # use the world fi
             target_velocity=torch.Tensor(data['velocity'][sid + 1, ...]),
             pressure=torch.Tensor(data['pressure'][sid, ...])
         )
+
+        new_dict = ensure_3d_tensors(new_dict)
   
         if self.add_noise_fn is not None:
             new_dict = self.add_noise_fn(new_dict)   
