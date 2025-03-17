@@ -1458,8 +1458,8 @@ if __name__ == "__main__":
     prefetch = 0
     is_graph = False
     use_h5 = True
-    model = 'HyperEl2d'
-    ds_path = "D:\project_summary\Graduation Project\\tmp\datasets_hdf5\\vessel2d"
+    model = 'IncompNS'
+    ds_path = "D:\project_summary\Graduation Project\\tmp\datasets_hdf5\\airway"
     split = "train"
     print(f'prefetch: {prefetch}, is_graph: {is_graph}, is_useh5: {use_h5}')
     if use_h5:

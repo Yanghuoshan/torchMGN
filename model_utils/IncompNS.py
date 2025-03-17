@@ -32,13 +32,22 @@ class Model(nn.Module):
     def __init__(self, output_size, message_passing_aggregator='sum', message_passing_steps=15, latent_size=256,
                  is_use_world_edge=False, 
                  mesh_type=3, 
-                 use_global_features=False):
+                 use_global_features=False,
+                 is_3d=False):
         super(Model, self).__init__()
         self.output_size = output_size
         self._output_normalizer = normalization.Normalizer(size=output_size, name='output_normalizer')
-        self._mesh_edge_normalizer = normalization.Normalizer(size=3, name='mesh_edge_normalizer')
+
+        self.is_3d = is_3d
+        if not is_3d:
+            self._mesh_edge_normalizer = normalization.Normalizer(size=3, name='mesh_edge_normalizer')
+        else:
+            self._mesh_edge_normalizer = normalization.Normalizer(size=4, name='mesh_edge_normalizer')
         # self._world_edge_normalizer = normalization.Normalizer(size=4, name='world_edge_normalizer') # abandon temporarily
-        self._node_normalizer = normalization.Normalizer(size=2 + common.NodeType.SIZE, name='node_normalizer')
+        if not is_3d:
+            self._node_normalizer = normalization.Normalizer(size=2 + common.NodeType.SIZE, name='node_normalizer')
+        else:
+            self._node_normalizer = normalization.Normalizer(size=3 + common.NodeType.SIZE, name='node_normalizer')
 
         self.message_passing_steps = message_passing_steps
         self.message_passing_aggregator = message_passing_aggregator
@@ -89,9 +98,12 @@ class Model(nn.Module):
         global_features = torch.zeros(1,self.latent_size, device=node_features.device)
 
         cells = inputs['cells']
-        senders, receivers = common.triangles_to_edges(cells, type=0)
-        
 
+        if not self.is_3d:
+            senders, receivers = common.triangles_to_edges(cells, type=0)
+        else:
+            senders, receivers = common.triangles_to_edges(cells, type=2)
+        
         mesh_pos = inputs['mesh_pos']
         relative_mesh_pos = (torch.index_select(mesh_pos, 0, senders) -
                              torch.index_select(mesh_pos, 0, receivers))
@@ -170,7 +182,12 @@ def loss_fn(inputs, network_output, model):
     
     # build loss
     node_type = inputs['node_type'].to(network_output.device)
-    loss_mask = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.NORMAL.value], device=network_output.device).int())
+
+    loss_mask1 = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.NORMAL.value], device=network_output.device).int())
+    loss_mask2 = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.WALL_BOUNDARY.value], device=network_output.device).int())
+    loss_mask3 = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.OUTFLOW.value], device=network_output.device).int())
+    loss_mask = loss_mask1|loss_mask2|loss_mask3
+    
     error = torch.sum((target_normalized - network_output) ** 2, dim=1)
     loss = torch.mean(error[loss_mask])
     return loss
@@ -179,7 +196,12 @@ def loss_fn(inputs, network_output, model):
 def loss_fn_alter(init_graph, target, network_output, node_type, model):
     target_normalizer = model.get_output_normalizer()
     target_normalized = target_normalizer(target)
-    loss_mask = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.NORMAL.value], device=network_output.device).int())
+
+    loss_mask1 = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.NORMAL.value], device=network_output.device).int())
+    loss_mask2 = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.WALL_BOUNDARY.value], device=network_output.device).int())
+    loss_mask3 = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.OUTFLOW.value], device=network_output.device).int())
+    loss_mask = loss_mask1|loss_mask2|loss_mask3
+    
     # 原始 error 计算
     error = torch.sum((target_normalized - network_output) ** 2, dim=1)
     loss = torch.mean(error[loss_mask])

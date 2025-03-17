@@ -3,7 +3,7 @@ import json
 from matplotlib import pyplot as plt
 
 # 打开 HDF5 文件
-file_path = 'D:\project_summary\Graduation Project\\tmp\datasets_hdf5\\vessel2d\\train\\'
+file_path = 'D:\project_summary\Graduation Project\\tmp\datasets_hdf5\\airway\\test\\'
 
 dict1 = {"files":dict()}
 with h5py.File(file_path+'dataset.h5', 'r') as f:
@@ -13,8 +13,8 @@ with h5py.File(file_path+'dataset.h5', 'r') as f:
     for name in f:
         flag = flag + 1
         print(name, end=' ')
-        print(f[name]["world_pos"].shape[0])
-        dict1["files"][name]=f[name]["world_pos"].shape[0]
+        print(f[name]["mesh_pos"].shape[0])
+        dict1["files"][name]=f[name]["mesh_pos"].shape[0]
     string = json.dumps(dict1)
     with open(file_path+'metadata.json','w',encoding='utf-8') as f:
         f.write(string)
