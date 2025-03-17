@@ -27,9 +27,7 @@ from dataclasses import replace
 
 def ensure_3d_tensors(data_dict):
     for key, tensor in data_dict.items():
-        if key == 'node_type':
-            continue # node_type默认形状为(time_steps,node_num)
-        while tensor.dim() < 3:
+        while tensor.dim() < 2:
             tensor = tensor.unsqueeze(-1)  # 在最后一维上增加维度
         data_dict[key] = tensor
     return data_dict
