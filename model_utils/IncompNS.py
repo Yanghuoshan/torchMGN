@@ -172,10 +172,10 @@ class Model(nn.Module):
         self.learned_model.eval()
 
 def loss_fn(inputs, network_output, model):
-    target1 = inputs["target_velocity"]-inputs["velocity"]
-    target2 = inputs['pressure']
+    target = inputs["target_velocity"]-inputs["velocity"]
+    # target2 = inputs['pressure']
 
-    target = torch.concat((target1, target2), dim=1) 
+    # target = torch.concat((target1, target2), dim=1) 
     target = target.to(network_output.device)
     target_normalized = model.get_output_normalizer()(target)
 
@@ -184,9 +184,9 @@ def loss_fn(inputs, network_output, model):
     node_type = inputs['node_type'].to(network_output.device)
 
     loss_mask = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.NORMAL.value], device=network_output.device).int())
-    # loss_mask2 = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.WALL_BOUNDARY.value], device=network_output.device).int())
+    loss_mask2 = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.WALL_BOUNDARY.value], device=network_output.device).int())
     # loss_mask3 = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.OUTFLOW.value], device=network_output.device).int())
-    # loss_mask = loss_mask1|loss_mask2|loss_mask3
+    loss_mask = loss_mask|loss_mask2
 
     error = torch.sum((target_normalized - network_output) ** 2, dim=1)
     loss = torch.mean(error[loss_mask])
@@ -198,9 +198,9 @@ def loss_fn_alter(init_graph, target, network_output, node_type, model):
     target_normalized = target_normalizer(target)
 
     loss_mask = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.NORMAL.value], device=network_output.device).int())
-    # loss_mask2 = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.WALL_BOUNDARY.value], device=network_output.device).int())
+    loss_mask2 = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.WALL_BOUNDARY.value], device=network_output.device).int())
     # loss_mask3 = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.OUTFLOW.value], device=network_output.device).int())
-    # loss_mask = loss_mask1|loss_mask2|loss_mask3
+    loss_mask = loss_mask|loss_mask2
     
     # 原始 error 计算
     error = torch.sum((target_normalized - network_output) ** 2, dim=1)

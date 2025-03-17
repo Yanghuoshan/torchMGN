@@ -923,10 +923,10 @@ class IncompNS_single_dataset_hdf5(torch.utils.data.Dataset): # use the world fi
              
         graph = self.prebuild_graph_fn(new_dict)
 
-        target1 = new_dict["target_velocity"]-new_dict["velocity"]
-        target2 = new_dict['pressure']
+        target = new_dict["target_velocity"]-new_dict["velocity"]
+        # target2 = new_dict['pressure']
 
-        target = torch.concat((target1, target2), dim=1) 
+        # target = torch.concat((target1, target2), dim=1) 
 
         return [graph, target, new_dict['node_type']]
     
@@ -1474,7 +1474,7 @@ if __name__ == "__main__":
     split = "train"
     print(f'prefetch: {prefetch}, is_graph: {is_graph}, is_useh5: {use_h5}')
     if use_h5:
-        dl = get_dataloader_hdf5_batch(ds_path,model=model,split=split,prefetch=prefetch,batch_size=1,shuffle=False)
+        dl = get_dataloader_hdf5_batch(ds_path,model=model,split=split,prefetch=prefetch,batch_size=1,shuffle=True)
     else:
         dl = get_dataloader("D:\project_summary\Graduation Project\\tmp\datasets_np\\flag_simple",model="Cloth",split="train",prefetch=prefetch)
     print(len(dl.dataset))
@@ -1487,7 +1487,8 @@ if __name__ == "__main__":
     
     a = next(dl)[0]
     print(a['cells'].shape)
-    print(a['node_type'].shape)
+    print(a['velocity'].shape)
+    print(torch.sum(a['velocity']==0))
     
     # execution_time = (end_time - start_time)/100
     # print(f"运行时间: {execution_time} 秒")
