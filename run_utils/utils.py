@@ -172,7 +172,7 @@ def learner(model, loss_fn, run_step_config, device):
                                                             shuffle=True,
                                                             prefetch=run_step_config['prefetch'], 
                                                             batch_size=run_step_config['batch_size'],
-                                                            add_noise_fn=add_noise_fn(run_step_config['noise_field'],run_step_config['noise_scale'],run_step_config['noise_gamma']),
+                                                            add_noise_fn=None,
                                                             prebuild_graph_fn=run_step_config['build_graph'])
                 else:
                 #     ds_loader = datasets.get_dataloader_hdf5_batch(run_step_config['dataset_dir'],
