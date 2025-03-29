@@ -888,8 +888,8 @@ class IncompNS_single_dataset_hdf5(torch.utils.data.Dataset): # use the world fi
             cells=torch.LongTensor(data['cells'][sid, ...]),
             node_type=torch.LongTensor(data['node_type'][sid, ...]),
             mesh_pos=torch.Tensor(data['mesh_pos'][sid, ...]),
-            velocity=torch.norm(torch.Tensor(data['velocity'][sid, ...]), dim=1),
-            target_velocity=torch.norm(torch.Tensor(data['velocity'][sid + 1, ...]), dim=1),
+            velocity=torch.Tensor(data['velocity'][sid, ...]),
+            target_velocity=torch.Tensor(data['velocity'][sid + 1, ...]),
             pressure=torch.Tensor(data['pressure'][sid, ...])
         )
 
@@ -911,8 +911,8 @@ class IncompNS_single_dataset_hdf5(torch.utils.data.Dataset): # use the world fi
             cells=torch.LongTensor(data['cells'][sid, ...]),
             node_type=torch.LongTensor(data['node_type'][sid, ...]),
             mesh_pos=torch.Tensor(data['mesh_pos'][sid, ...]),
-            velocity=torch.norm(torch.Tensor(data['velocity'][sid, ...]), dim=1),
-            target_velocity=torch.norm(torch.Tensor(data['velocity'][sid + 1, ...]), dim=1),
+            velocity=torch.Tensor(data['velocity'][sid, ...]),
+            target_velocity=torch.Tensor(data['velocity'][sid + 1, ...]),
             pressure=torch.Tensor(data['pressure'][sid, ...])
         )
 
