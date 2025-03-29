@@ -185,8 +185,8 @@ def loss_fn(inputs, network_output, model):
 
     loss_mask = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.NORMAL.value], device=network_output.device).int())
     loss_mask2 = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.WALL_BOUNDARY.value], device=network_output.device).int())
-    loss_mask3 = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.OUTFLOW.value], device=network_output.device).int())
-    loss_mask = loss_mask|loss_mask2|loss_mask3
+    # loss_mask3 = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.OUTFLOW.value], device=network_output.device).int())
+    loss_mask = loss_mask|loss_mask2
 
     error = torch.sum((target_normalized - network_output) ** 2, dim=1)
     loss = torch.mean(error[loss_mask])
@@ -199,8 +199,8 @@ def loss_fn_alter(init_graph, target, network_output, node_type, model):
 
     loss_mask = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.NORMAL.value], device=network_output.device).int())
     loss_mask2 = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.WALL_BOUNDARY.value], device=network_output.device).int())
-    loss_mask3 = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.OUTFLOW.value], device=network_output.device).int())
-    loss_mask = loss_mask|loss_mask2|loss_mask3
+    # loss_mask3 = torch.eq(node_type[:, 0], torch.tensor([common.NodeType.OUTFLOW.value], device=network_output.device).int())
+    loss_mask = loss_mask|loss_mask2
     
     # 原始 error 计算
     error = torch.sum((target_normalized - network_output) ** 2, dim=1)

@@ -3,7 +3,7 @@ import json
 from matplotlib import pyplot as plt
 
 # 打开 HDF5 文件
-file_path = 'D:\project_summary\Graduation Project\\tmp\datasets_hdf5\\airway\\test\\'
+file_path = 'D:\project_summary\Graduation Project\\tmp\datasets_hdf5\\new_airway\\train\\'
 
 dict1 = {"files":dict()}
 with h5py.File(file_path+'dataset.h5', 'r') as f:
